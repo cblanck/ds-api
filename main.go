@@ -33,7 +33,7 @@ func main() {
 	/*
 	 * Load Configuration
 	 */
-	server_config = LoadConfiguration("server.gcfg")
+	server_config = LoadConfiguration("/opt/degree/server.gcfg")
 
 	/*
 	 * Set up log facility
