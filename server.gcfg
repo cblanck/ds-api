@@ -1,0 +1,14 @@
+[Mysql]
+mysqlUser = "kmm_sql_user"
+mysqlPassword = "GJ8sqHPNRY2FKY2W"
+mysqlIPProto = "tcp"
+mysqlServerAddr = "db.keepmailing.me"
+mysqlServerPort = "3306"
+mysqlDatabase = "kmm_db"
+
+[Logging]
+LogFile = "keepmailingd.log"
+
+[Network]
+BindAddress = "127.0.0.1"
+BindPort = "1080"
