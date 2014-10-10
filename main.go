@@ -7,19 +7,45 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 var server_config Config
 
+var http_server http.Server
+
 func init_server() {
+
 	bind_address := server_config.Network.BindAddress + ":" + server_config.Network.BindPort
 
-	http.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Build %s", build_version)
+	api_handler := NewApiHandler()
+
+	read_timeout, err := time.ParseDuration(server_config.Network.ReadTimeout)
+	if err != nil {
+		read_timeout = 10 * time.Second
+		log.Println("Invalid network timeout", server_config.Network.ReadTimeout)
+	}
+
+	write_timeout, err := time.ParseDuration(server_config.Network.WriteTimeout)
+	if err != nil {
+		write_timeout = 10 * time.Second
+		log.Println("Invalid network timeout", server_config.Network.WriteTimeout)
+	}
+
+	http_server = http.Server{
+		Addr:           bind_address,
+		Handler:        api_handler,
+		ReadTimeout:    read_timeout,
+		WriteTimeout:   write_timeout,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	api_handler.AddServletFunc("/version", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "{ \"success\":1, \"return\":{ \"build\":\"%s\"} }", build_version)
 	})
 
 	// Start listening to HTTP requests
-	if err := http.ListenAndServe(bind_address, nil); err != nil {
+	if err := http_server.ListenAndServe(); err != nil {
 		log.Fatalln("Fatal Error: ListenAndServe: ", err.Error())
 	}
 
