@@ -8,7 +8,10 @@ mysqlDatabase = "kmm_db"
 
 [Logging]
 LogFile = "/opt/degree/degreed.log"
+AccessLogFile = "/opt/degree/degreed_access.log"
 
 [Network]
 BindAddress = "0.0.0.0"
 BindPort = "1080"
+ReadTimeout = "10s"
+WriteTimeout = "10s"

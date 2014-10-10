@@ -19,12 +19,15 @@ type Config struct {
 	}
 
 	Logging struct {
-		LogFile string
+		LogFile       string
+		AccessLogFile string
 	}
 
 	Network struct {
-		BindAddress string
-		BindPort    string
+		BindAddress  string
+		BindPort     string
+		ReadTimeout  string
+		WriteTimeout string
 	}
 }
 
@@ -47,7 +50,7 @@ func LoadConfiguration(config_path string) Config {
 	kc := Config{}
 	err := gcfg.ReadFileInto(&kc, config_path)
 	if err != nil {
-		log.Fatal("Failed to parse gcfg data: %s", err)
+		log.Fatal("Failed to parse gcfg data: ", err)
 	}
 	return kc
 }
