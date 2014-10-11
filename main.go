@@ -7,12 +7,23 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"flag"
 	"time"
 )
 
 var server_config Config
 
 var http_server http.Server
+
+// CLI Arguments
+var config_file string
+const config_file_default = "server.gcfg"
+const config_file_usage = "Specify configuration file"
+
+func init() {
+	flag.StringVar(&config_file, "config", config_file_default, config_file_usage)
+	flag.StringVar(&config_file, "c", config_file_default, config_file_usage+" (shorthand)")
+}
 
 func init_server() {
 
@@ -59,7 +70,7 @@ func main() {
 	/*
 	 * Load Configuration
 	 */
-	server_config = LoadConfiguration("/opt/degree/server.gcfg")
+	server_config = LoadConfiguration(config_file)
 
 	/*
 	 * Set up log facility
