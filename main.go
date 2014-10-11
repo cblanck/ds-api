@@ -41,7 +41,7 @@ func init_server() {
 
 	bind_address := server_config.Network.BindAddress + ":" + server_config.Network.BindPort
 
-	api_handler := NewApiHandler()
+	api_handler := NewApiHandler(&server_config)
 
 	read_timeout, err := time.ParseDuration(server_config.Network.ReadTimeout)
 	if err != nil {
@@ -76,6 +76,8 @@ func init_server() {
 }
 
 func main() {
+	// Load CLI args
+	flag.Parse()
 
 	log.Println("Starting API server")
 
@@ -83,6 +85,9 @@ func main() {
 	 * Load Configuration
 	 */
 	server_config = LoadConfiguration(config_file)
+
+	// Set config options that were loaded from CLI
+	server_config.Arguments.LogToStderr = config_log_stderr
 
 	/*
 	 * Set up log facility
