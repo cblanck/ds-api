@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/rschlaikjer/go-apache-logformat"
 	"log"
@@ -9,6 +10,11 @@ import (
 )
 
 const apache_log_format = `%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"`
+
+type ApiError struct {
+	Success int
+	Error   string
+}
 
 type ApiHandler struct {
 	Servlets  map[string]func(http.ResponseWriter, *http.Request)
@@ -58,5 +64,14 @@ func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *ApiHandler) ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
-	http.Error(w, fmt.Sprintf("{ \"success\":0, \"error\": \"%s\" }", error), errcode)
+	error_struct := ApiError{
+		Success: 0,
+		Error:   error}
+	error_json, err := json.Marshal(error_struct)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+	http.Error(w, string(error_json), errcode)
 }
