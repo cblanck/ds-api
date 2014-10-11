@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,11 +15,33 @@ var server_config Config
 
 var http_server http.Server
 
+/*
+ *  CLI Arguments
+ */
+// Config file location
+var config_file string
+
+const config_file_default = "server.gcfg"
+const config_file_usage = "Specify configuration file"
+
+// Log to stderr for debugging
+var config_log_stderr bool
+
+const config_log_stderr_default = false
+const config_log_stderr_usage = "Log to stderr instead of the specified logfiles"
+
+func init() {
+	flag.StringVar(&config_file, "config", config_file_default, config_file_usage)
+	flag.StringVar(&config_file, "c", config_file_default, config_file_usage+" (shorthand)")
+
+	flag.BoolVar(&config_log_stderr, "stderr", config_log_stderr_default, config_log_stderr_usage)
+}
+
 func init_server() {
 
 	bind_address := server_config.Network.BindAddress + ":" + server_config.Network.BindPort
 
-	api_handler := NewApiHandler()
+	api_handler := NewApiHandler(&server_config)
 
 	read_timeout, err := time.ParseDuration(server_config.Network.ReadTimeout)
 	if err != nil {
@@ -53,29 +76,36 @@ func init_server() {
 }
 
 func main() {
+	// Load CLI args
+	flag.Parse()
 
 	log.Println("Starting API server")
 
 	/*
 	 * Load Configuration
 	 */
-	server_config = LoadConfiguration("/opt/degree/server.gcfg")
+	server_config = LoadConfiguration(config_file)
+
+	// Set config options that were loaded from CLI
+	server_config.Arguments.LogToStderr = config_log_stderr
 
 	/*
 	 * Set up log facility
 	 */
-	if _, err := os.Stat(server_config.Logging.LogFile); os.IsNotExist(err) {
-		log_file, err := os.Create(server_config.Logging.LogFile)
-		if err != nil {
-			log.Fatal("Log: Create: ", err.Error())
+	if !config_log_stderr {
+		if _, err := os.Stat(server_config.Logging.LogFile); os.IsNotExist(err) {
+			log_file, err := os.Create(server_config.Logging.LogFile)
+			if err != nil {
+				log.Fatal("Log: Create: ", err.Error())
+			}
+			log.SetOutput(log_file)
+		} else {
+			log_file, err := os.OpenFile(server_config.Logging.LogFile, os.O_APPEND|os.O_RDWR, 0666)
+			if err != nil {
+				log.Fatal("Log: OpenFile: ", err.Error())
+			}
+			log.SetOutput(log_file)
 		}
-		log.SetOutput(log_file)
-	} else {
-		log_file, err := os.OpenFile(server_config.Logging.LogFile, os.O_APPEND|os.O_RDWR, 0666)
-		if err != nil {
-			log.Fatal("Log: OpenFile: ", err.Error())
-		}
-		log.SetOutput(log_file)
 	}
 
 	/*

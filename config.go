@@ -29,6 +29,10 @@ type Config struct {
 		ReadTimeout  string
 		WriteTimeout string
 	}
+
+	Arguments struct {
+		LogToStderr bool
+	}
 }
 
 func (kc Config) GetSqlURI() string {

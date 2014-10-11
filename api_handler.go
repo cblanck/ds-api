@@ -21,26 +21,30 @@ type ApiHandler struct {
 	AccessLog *apachelog.ApacheLog
 }
 
-func NewApiHandler() *ApiHandler {
+func NewApiHandler(server_config *Config) *ApiHandler {
 	h := new(ApiHandler)
-	h.SetAccessLog()
+	h.SetAccessLog(server_config)
 	h.Servlets = make(map[string]func(http.ResponseWriter, *http.Request))
 	return h
 }
 
-func (t *ApiHandler) SetAccessLog() {
-	if _, err := os.Stat(server_config.Logging.AccessLogFile); os.IsNotExist(err) {
-		log_file, err := os.Create(server_config.Logging.AccessLogFile)
-		if err != nil {
-			log.Fatal("Log: Create: ", err.Error())
+func (t *ApiHandler) SetAccessLog(server_config *Config) {
+	if !server_config.Arguments.LogToStderr {
+		if _, err := os.Stat(server_config.Logging.AccessLogFile); os.IsNotExist(err) {
+			log_file, err := os.Create(server_config.Logging.AccessLogFile)
+			if err != nil {
+				log.Fatal("Log: Create: ", err.Error())
+			}
+			t.AccessLog = apachelog.NewApacheLog(log_file, apache_log_format)
+		} else {
+			log_file, err := os.OpenFile(server_config.Logging.AccessLogFile, os.O_APPEND|os.O_RDWR, 0666)
+			if err != nil {
+				log.Fatal("Log: OpenFile: ", err.Error())
+			}
+			t.AccessLog = apachelog.NewApacheLog(log_file, apache_log_format)
 		}
-		t.AccessLog = apachelog.NewApacheLog(log_file, apache_log_format)
 	} else {
-		log_file, err := os.OpenFile(server_config.Logging.AccessLogFile, os.O_APPEND|os.O_RDWR, 0666)
-		if err != nil {
-			log.Fatal("Log: OpenFile: ", err.Error())
-		}
-		t.AccessLog = apachelog.NewApacheLog(log_file, apache_log_format)
+		t.AccessLog = apachelog.NewApacheLog(os.Stderr, apache_log_format)
 	}
 }
 
