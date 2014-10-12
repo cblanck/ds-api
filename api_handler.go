@@ -63,11 +63,11 @@ func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if servlet, servlet_exists := t.Servlets[r.RequestURI]; servlet_exists {
 		servlet(w, r)
 	} else {
-		t.ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
+		ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
 	}
 }
 
-func (t *ApiHandler) ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
+func ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
 	error_struct := ApiError{
 		Success: 0,
 		Error:   error}

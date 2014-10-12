@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -63,9 +62,7 @@ func init_server() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	api_handler.AddServletFunc("/version", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "{ \"success\":1, \"return\":{ \"build\":\"%s\"} }", build_version)
-	})
+	api_handler.AddServlet("/version", NewVersionServlet())
 
 	// Start listening to HTTP requests
 	if err := http_server.ListenAndServe(); err != nil {
