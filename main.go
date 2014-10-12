@@ -63,6 +63,7 @@ func init_server() {
 	}
 
 	api_handler.AddServlet("/version", NewVersionServlet())
+	api_handler.AddServlet("/user", NewUserServlet(server_config))
 
 	// Start listening to HTTP requests
 	if err := http_server.ListenAndServe(); err != nil {
