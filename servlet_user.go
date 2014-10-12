@@ -9,6 +9,7 @@ import (
 	"code.google.com/p/go.crypto/pbkdf2"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
@@ -20,13 +21,30 @@ import (
 )
 
 type UserServlet struct {
-	db     *sql.DB
-	random *rand.Rand
+	db              *sql.DB
+	random          *rand.Rand
+	session_manager *SessionManager
 }
 
-func NewUserServlet(server_config Config) *UserServlet {
+type UserData struct {
+	Id              int
+	Username        string
+	password        string
+	password_salt   string
+	Email           string
+	First_name      string
+	Last_name       string
+	Class_year      string
+	Account_created time.Time
+	Last_login      time.Time
+	Session_token   string
+}
+
+func NewUserServlet(server_config Config, session_manager *SessionManager) *UserServlet {
 	t := new(UserServlet)
 	t.random = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	t.session_manager = session_manager
 
 	db, err := sql.Open("mysql", server_config.GetSqlURI())
 	if err != nil {
@@ -64,6 +82,21 @@ func (t *UserServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (t *UserServlet) CheckSession(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, fmt.Sprintf("Session has expired. Please log in again"), 200)
+		return
+	}
+	ServeError(w, r, fmt.Sprintf("Got valid session for %s", session.user.First_name), 200)
+}
+
 // Create a login session for a user.
 // Session tokens are stored in a local cache, as well as back to the DB to
 // support multi-server architecture. A cache miss will result in a DB read.
@@ -98,11 +131,96 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 
 	if string(generated_hash) == password_hash {
 		// Successful login
-		ServeError(w, r, "Not implemented", 501)
+		userdata, err := t.fetch_user_by_name(user)
+		if err != nil {
+			log.Println(err)
+			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+			return
+		}
+		userdata.Session_token, err = t.session_manager.CreateSessionForUser(userdata.Id)
+		if err != nil {
+			log.Println(err)
+			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+			return
+		}
+		ServeResult(w, r, userdata)
 	} else {
 		// Invalid username / password combination
 		ServeError(w, r, "Invalid username and/or password", 200)
 	}
+}
+
+func (t *UserServlet) fetch_user_by_name(username string) (*UserData, error) {
+	rows, err := t.db.Query(`SELECT id, username, password, password_salt,
+		email, first_name, last_name, class_year, account_created, last_login
+		FROM degreesheep.user WHERE username = ?`, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	num_rows := 0
+	user_data := new(UserData)
+	for rows.Next() {
+		num_rows++
+		if err := rows.Scan(
+			&user_data.Id,
+			&user_data.Username,
+			&user_data.password,
+			&user_data.password_salt,
+			&user_data.Email,
+			&user_data.First_name,
+			&user_data.Last_name,
+			&user_data.Class_year,
+			&user_data.Account_created,
+			&user_data.Last_login); err != nil {
+			return nil, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if num_rows == 0 {
+		return nil, errors.New(fmt.Sprintf("Failed to get data for %s - no such user", username))
+	}
+	return user_data, nil
+}
+
+// Get information for a user by UID
+func FetchUserById(db *sql.DB, uid int) (*UserData, error) {
+	rows, err := db.Query(`SELECT id, username, password, password_salt,
+		email, first_name, last_name, class_year, account_created, last_login
+		FROM degreesheep.user WHERE id = ?`, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	num_rows := 0
+	user_data := new(UserData)
+	for rows.Next() {
+		num_rows++
+		if err := rows.Scan(
+			&user_data.Id,
+			&user_data.Username,
+			&user_data.password,
+			&user_data.password_salt,
+			&user_data.Email,
+			&user_data.First_name,
+			&user_data.Last_name,
+			&user_data.Class_year,
+			&user_data.Account_created,
+			&user_data.Last_login); err != nil {
+			return nil, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if num_rows == 0 {
+		return nil, errors.New(fmt.Sprintf("Failed to get data for UID %d - no such user", uid))
+	}
+	return user_data, nil
 }
 
 // Create a new user, then allocate a new session.

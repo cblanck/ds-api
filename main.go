@@ -62,8 +62,9 @@ func init_server() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	session_manager := NewSessionManager(server_config)
 	api_handler.AddServlet("/version", NewVersionServlet())
-	api_handler.AddServlet("/user", NewUserServlet(server_config))
+	api_handler.AddServlet("/user", NewUserServlet(server_config, session_manager))
 
 	// Start listening to HTTP requests
 	if err := http_server.ListenAndServe(); err != nil {

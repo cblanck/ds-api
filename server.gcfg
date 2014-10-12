@@ -15,3 +15,6 @@ BindAddress = "0.0.0.0"
 BindPort = "1080"
 ReadTimeout = "10s"
 WriteTimeout = "10s"
+
+[Cache]
+SessionCacheSize = 1024

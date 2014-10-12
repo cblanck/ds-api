@@ -16,6 +16,11 @@ type ApiError struct {
 	Error   string
 }
 
+type ApiSuccess struct {
+	Success int
+	Return  interface{}
+}
+
 type ApiHandler struct {
 	Servlets  map[string]func(http.ResponseWriter, *http.Request)
 	AccessLog *apachelog.ApacheLog
@@ -78,4 +83,17 @@ func ServeError(w http.ResponseWriter, r *http.Request, error string, errcode in
 		return
 	}
 	http.Error(w, string(error_json), errcode)
+}
+
+func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
+	result_struct := ApiSuccess{
+		Success: 1,
+		Return:  result}
+	result_json, err := json.Marshal(result_struct)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+	fmt.Fprintf(w, string(result_json))
 }
