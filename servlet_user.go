@@ -6,9 +6,11 @@
 package main
 
 import (
+	"bytes"
 	"code.google.com/p/go.crypto/pbkdf2"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
@@ -113,32 +115,15 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 	user := r.Form.Get("user")
 	pass := r.Form.Get("pass")
 
-	rows, err := t.db.Query("SELECT password, password_salt FROM user WHERE username = ?", user)
+	// Verify the password
+	password_valid, err := t.verify_password_for_user(user, pass)
 	if err != nil {
 		log.Println("Login", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
 
-	defer rows.Close()
-	var password_hash string
-	var password_salt string
-	for rows.Next() {
-		if err := rows.Scan(&password_hash, &password_salt); err != nil {
-			log.Println("Login", err)
-			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-			return
-		}
-	}
-	if err := rows.Err(); err != nil {
-		log.Println("Login", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
-	}
-
-	generated_hash := t.generate_password_hash([]byte(pass), []byte(password_salt))
-
-	if string(generated_hash) == password_hash {
+	if password_valid {
 		// Successful login
 		userdata, err := t.process_login(user)
 		if err != nil {
@@ -154,6 +139,48 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Verify a password for a username.
+// Returns whether or not the password was valid and whether an error occurred.
+func (t *UserServlet) verify_password_for_user(user, pass string) (bool, error) {
+	rows, err := t.db.Query("SELECT password, password_salt FROM user WHERE username = ?", user)
+	if err != nil {
+		return false, err
+	}
+
+	defer rows.Close()
+	var password_hash_base64 string
+	var password_salt_base64 string
+	for rows.Next() {
+		if err := rows.Scan(&password_hash_base64, &password_salt_base64); err != nil {
+			return false, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	password_hash, err := base64.StdEncoding.DecodeString(password_hash_base64)
+	if err != nil {
+		return false, err
+	}
+	password_salt, err := base64.StdEncoding.DecodeString(password_salt_base64)
+	if err != nil {
+		return false, err
+	}
+
+	generated_hash := t.generate_password_hash([]byte(pass), []byte(password_salt))
+
+	// Verify the byte arrays for equality. bytes.Compare returns 0 if the two
+	// arrays are equivalent.
+	if bytes.Compare(generated_hash, password_hash) == 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+// Fetches a user's data and creates a session for them.
+// Returns a pointer to the userdata and an error.
 func (t *UserServlet) process_login(user string) (*UserData, error) {
 	userdata, err := FetchUserByName(t.db, user)
 	if err != nil {
@@ -177,6 +204,7 @@ func (t *UserServlet) update_last_login_for_user(user string) error {
 	return err
 }
 
+// Fetches information about a user by username.
 func FetchUserByName(db *sql.DB, username string) (*UserData, error) {
 	rows, err := db.Query(`SELECT id, username, password, password_salt,
 		email, first_name, last_name, class_year, account_created, last_login,
@@ -279,17 +307,19 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	password_salt := t.generate_random_bytestring(64)
-	password_hash := t.generate_password_hash([]byte(pass), password_salt)
-
+	// Create the user
 	_, err = t.db.Exec(`INSERT INTO  degreesheep.user (
-        username, password, password_salt, email, first_name,
-        last_name, class_year ) VALUES ( ?, ?, ?, ?, ?, ?, ?)`, user, password_hash, password_salt, email, firstname, lastname, classyear)
+        username, email, first_name,
+        last_name, class_year ) VALUES ( ?, ?, ?, ?, ?, ?, ?)`,
+		user, email, firstname, lastname, classyear)
 	if err != nil {
 		log.Println("Register", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
+
+	// Set the password for the user
+	t.set_password_for_user(user, pass)
 
 	// Log in as the new user
 	userdata, err := t.process_login(user)
@@ -300,6 +330,20 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ServeResult(w, r, userdata)
 	}
+}
+
+// Sets the password for a user by username.
+// Generates a new salt as well.
+// Values are stored as base64 encoded strings.
+func (t *UserServlet) set_password_for_user(user, pass string) error {
+	password_salt := t.generate_random_bytestring(64)
+	password_hash := t.generate_password_hash([]byte(pass), password_salt)
+	_, err := t.db.Exec("UPDATE degreesheep.user SET password = ?, password_salt = ? WHERE username = ?",
+		base64.StdEncoding.EncodeToString(password_hash),
+		base64.StdEncoding.EncodeToString(password_salt),
+		user,
+	)
+	return err
 }
 
 // Forgot password action for users.
@@ -340,20 +384,10 @@ func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate a new salt and hash from the new password
-	password_salt := t.generate_random_bytestring(64)
-	password_hash := t.generate_password_hash([]byte(new_pass), password_salt)
-
 	// Update the user
-	_, err = t.db.Exec("UPDATE user SET password = ?, password_salt = ? WHERE username = ?",
-		password_hash, password_salt, user,
-	)
-	if err != nil {
-		log.Println(err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
-	}
+	t.set_password_for_user(user, new_pass)
 
+	// Start a new session
 	userdata, err := t.process_login(user)
 	if err != nil {
 		log.Println("process_login", err)
