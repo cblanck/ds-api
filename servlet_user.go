@@ -41,6 +41,8 @@ type UserData struct {
 	password_reset_key string
 }
 
+const alphanumerics = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
 func NewUserServlet(server_config Config, session_manager *SessionManager) *UserServlet {
 	t := new(UserServlet)
 	t.random = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -397,11 +399,12 @@ func (t *UserServlet) generate_random_bytestring(length int) []byte {
 	return random_bytes
 }
 
-// Create a random bytestring
+// Create a random alphanumeric string
 func (t *UserServlet) generate_random_alphanumeric(length int) []byte {
 	random_bytes := make([]byte, length)
+
 	for i := range random_bytes {
-		random_bytes[i] = byte(t.random.Int() & 0xff)
+		random_bytes[i] = alphanumerics[t.random.Int()%len(alphanumerics)]
 	}
 	return random_bytes
 }
