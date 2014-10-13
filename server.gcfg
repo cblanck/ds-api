@@ -1,10 +1,10 @@
 [Mysql]
-mysqlUser = "kmm_sql_user"
-mysqlPassword = "GJ8sqHPNRY2FKY2W"
+mysqlUser = "degreesheep_api"
+mysqlPassword = "WyeaQrjrPhysyQZW"
 mysqlIPProto = "tcp"
-mysqlServerAddr = "db.keepmailing.me"
+mysqlServerAddr = "localhost"
 mysqlServerPort = "3306"
-mysqlDatabase = "kmm_db"
+mysqlDatabase = "degreesheep"
 
 [Logging]
 LogFile = "/opt/degree/degreed.log"
