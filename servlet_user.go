@@ -67,6 +67,12 @@ func NewUserServlet(server_config Config, session_manager *SessionManager) *User
 func (t *UserServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	method := r.Form.Get("method")
+
+	if method == "" {
+		ServeError(w, r, "No method specified", 405)
+		return
+	}
+
 	upper_method := strings.ToUpper(method)
 	exported_method := []byte(method)
 	exported_method[0] = upper_method[0]
