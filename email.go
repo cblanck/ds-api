@@ -52,6 +52,20 @@ func (t *EmailManager) process_mail_queue() {
 			continue
 		}
 
+		// If authentication was enabled in the config file, load it.
+		if t.server_config.Mail.Auth {
+			auth := smtp.PlainAuth(
+				"",
+				t.server_config.Mail.User,
+				t.server_config.Mail.Password,
+				t.server_config.Mail.Host,
+			)
+			if err := conn.Auth(auth); err != nil {
+				log.Println("Mail: Auth:", err)
+				continue
+			}
+		}
+
 		// Set the sender and recipient first
 		if err := conn.Mail(message.From); err != nil {
 			log.Println(err)
