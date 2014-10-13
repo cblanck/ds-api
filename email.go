@@ -86,11 +86,11 @@ func (t *EmailManager) process_mail_queue() {
 			log.Println("Mail: Data:", err)
 			continue
 		}
-		_, err = fmt.Fprintf(wc, "Subject: %s\n\n%s", message.Subject, message.Body)
-		if err != nil {
-			log.Println("Mail: Fmt:", err)
-			continue
-		}
+
+		fmt.Fprintf(wc, "To: %s\n", message.To)
+		fmt.Fprintf(wc, "From: %s\n", message.From)
+		fmt.Fprintf(wc, "Subject: %s\n", message.Subject)
+		fmt.Fprintf(wc, "\n%s\n", message.Body)
 
 		err = wc.Close()
 		if err != nil {
