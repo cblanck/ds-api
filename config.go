@@ -37,6 +37,16 @@ type Config struct {
 	Memcache struct {
 		Host string
 	}
+
+	Mail struct {
+		From      string
+		Host      string
+		Port      int
+		Auth      bool
+		User      string
+		Password  string
+		QueueSize int
+	}
 }
 
 func (kc Config) GetSqlURI() string {

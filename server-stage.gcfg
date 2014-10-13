@@ -18,3 +18,12 @@ WriteTimeout = "10s"
 
 [Memcache]
 Host = "localhost:11211"
+
+[Mail]
+From = "no-reply@degreesheep.com"
+Host = "smtp.tufts.edu"
+Port = "25"
+Auth = "false"
+User = ""
+Password = ""
+QueueSize = "100"
