@@ -343,9 +343,14 @@ func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
 	password_hash := t.generate_password_hash([]byte(new_pass), password_salt)
 
 	// Update the user
-	t.db.Exec("UPDATE user SET password = ?, password_salt = ? WHERE username = ?",
+	_, err = t.db.Exec("UPDATE user SET password = ?, password_salt = ? WHERE username = ?",
 		password_hash, password_salt, user,
 	)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	}
 
 	userdata, err := t.process_login(user)
 	if err != nil {
