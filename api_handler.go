@@ -16,6 +16,11 @@ type ApiError struct {
 	Error   string
 }
 
+type ApiSuccess struct {
+	Success int
+	Return  interface{}
+}
+
 type ApiHandler struct {
 	Servlets  map[string]func(http.ResponseWriter, *http.Request)
 	AccessLog *apachelog.ApacheLog
@@ -63,11 +68,11 @@ func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if servlet, servlet_exists := t.Servlets[r.RequestURI]; servlet_exists {
 		servlet(w, r)
 	} else {
-		t.ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
+		ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
 	}
 }
 
-func (t *ApiHandler) ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
+func ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
 	error_struct := ApiError{
 		Success: 0,
 		Error:   error}
@@ -78,4 +83,17 @@ func (t *ApiHandler) ServeError(w http.ResponseWriter, r *http.Request, error st
 		return
 	}
 	http.Error(w, string(error_json), errcode)
+}
+
+func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
+	result_struct := ApiSuccess{
+		Success: 1,
+		Return:  result}
+	result_json, err := json.Marshal(result_struct)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal server error", 500)
+		return
+	}
+	fmt.Fprintf(w, string(result_json))
 }

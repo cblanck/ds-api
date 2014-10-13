@@ -33,6 +33,10 @@ type Config struct {
 	Arguments struct {
 		LogToStderr bool
 	}
+
+	Cache struct {
+		SessionCacheSize int
+	}
 }
 
 func (kc Config) GetSqlURI() string {
@@ -46,7 +50,9 @@ func (kc Config) GetSqlURI() string {
 		":",
 		kc.Mysql.MysqlServerPort,
 		")/",
-		kc.Mysql.MysqlDatabase}
+		kc.Mysql.MysqlDatabase,
+		"?parseTime=true",
+	}
 	return strings.Join(mysql_auth_strings, "")
 }
 
