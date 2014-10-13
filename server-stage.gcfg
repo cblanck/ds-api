@@ -7,8 +7,8 @@ mysqlServerPort = "3306"
 mysqlDatabase = "degreesheep"
 
 [Logging]
-LogFile = "/opt/degree/degreed.log"
-AccessLogFile = "/opt/degree/degreed_access.log"
+LogFile = "/opt/degree/stage/degreed.log"
+AccessLogFile = "/opt/degree/stage/degreed_access.log"
 
 [Network]
 BindAddress = "0.0.0.0"
