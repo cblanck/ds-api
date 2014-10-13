@@ -15,7 +15,7 @@ if [ $# -ne 1 ]; then
 fi
 
 WORKDIR="$1"
-BINARY="degree"
+BINARY="degreed"
 
 export GOPATH="$WORKDIR"
 
