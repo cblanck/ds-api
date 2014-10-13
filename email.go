@@ -48,7 +48,7 @@ func (t *EmailManager) process_mail_queue() {
 		// Connect to the remote SMTP server.
 		conn, err := smtp.Dial(fmt.Sprintf("%s:%d", t.server_config.Mail.Host, t.server_config.Mail.Port))
 		if err != nil {
-			log.Println(err)
+			log.Println("Mail: Dial:", err)
 			continue
 		}
 
@@ -68,36 +68,36 @@ func (t *EmailManager) process_mail_queue() {
 
 		// Set the sender and recipient first
 		if err := conn.Mail(message.From); err != nil {
-			log.Println(err)
+			log.Println("Mail: Mail:", err)
 			continue
 		}
 		if err := conn.Rcpt(message.To); err != nil {
-			log.Println(err)
+			log.Println("Mail: Rcpt:", err)
 			continue
 		}
 
 		// Send the email body.
 		wc, err := conn.Data()
 		if err != nil {
-			log.Println(err)
+			log.Println("Mail: Data:", err)
 			continue
 		}
 		_, err = fmt.Fprintf(wc, message.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Mail: Fmt:", err)
 			continue
 		}
 
 		err = wc.Close()
 		if err != nil {
-			log.Println(err)
+			log.Println("Mail: Close:", err)
 			continue
 		}
 
 		// Send the QUIT command and close the connection.
 		err = conn.Quit()
 		if err != nil {
-			log.Println(err)
+			log.Println("Mail: Quit:", err)
 			continue
 		}
 	}
