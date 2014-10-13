@@ -48,7 +48,7 @@ func NewUserServlet(server_config Config, session_manager *SessionManager) *User
 
 	db, err := sql.Open("mysql", server_config.GetSqlURI())
 	if err != nil {
-		log.Fatal("Failed to open database:", err)
+		log.Fatal("NewUserServlet", "Failed to open database:", err)
 	}
 	t.db = db
 
@@ -86,7 +86,7 @@ func (t *UserServlet) CheckSession(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println(err)
+		log.Println("CheckSession", err)
 		ServeError(w, r, "Internal Server Error", 500)
 		return
 	}
@@ -106,7 +106,7 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := t.db.Query("SELECT password, password_salt FROM user WHERE username = ?", user)
 	if err != nil {
-		log.Println(err)
+		log.Println("Login", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
@@ -116,13 +116,13 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 	var password_salt string
 	for rows.Next() {
 		if err := rows.Scan(&password_hash, &password_salt); err != nil {
-			log.Println(err)
+			log.Println("Login", err)
 			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 			return
 		}
 	}
 	if err := rows.Err(); err != nil {
-		log.Println(err)
+		log.Println("Login", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
@@ -133,13 +133,13 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 		// Successful login
 		userdata, err := t.fetch_user_by_name(user)
 		if err != nil {
-			log.Println(err)
+			log.Println("Login", err)
 			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 			return
 		}
 		userdata.Session_token, err = t.session_manager.CreateSessionForUser(userdata.Id)
 		if err != nil {
-			log.Println(err)
+			log.Println("Login", err)
 			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 			return
 		}
@@ -241,7 +241,7 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 	// Check if the username is already taken
 	name_exists, err := t.username_exists(user)
 	if err != nil {
-		log.Println(err)
+		log.Println("Register", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
@@ -257,7 +257,7 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
         username, password, password_salt, email, first_name,
         last_name, class_year ) VALUES ( ?, ?, ?, ?, ?, ?, ?)`, user, password_hash, password_salt, email, firstname, lastname, classyear)
 	if err != nil {
-		log.Println(err)
+		log.Println("Register", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
