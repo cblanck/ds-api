@@ -27,17 +27,18 @@ type UserServlet struct {
 }
 
 type UserData struct {
-	Id              int
-	Username        string
-	password        string
-	password_salt   string
-	Email           string
-	First_name      string
-	Last_name       string
-	Class_year      string
-	Account_created time.Time
-	Last_login      time.Time
-	Session_token   string
+	Id                 int
+	Username           string
+	password           string
+	password_salt      string
+	Email              string
+	First_name         string
+	Last_name          string
+	Class_year         string
+	Account_created    time.Time
+	Last_login         time.Time
+	Session_token      string
+	password_reset_key string
 }
 
 func NewUserServlet(server_config Config, session_manager *SessionManager) *UserServlet {
@@ -131,29 +132,36 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 
 	if string(generated_hash) == password_hash {
 		// Successful login
-		userdata, err := t.fetch_user_by_name(user)
+		userdata, err := t.process_login(user)
 		if err != nil {
-			log.Println("Login", err)
+			log.Println("process_login", err)
 			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 			return
+		} else {
+			ServeResult(w, r, userdata)
 		}
-		userdata.Session_token, err = t.session_manager.CreateSessionForUser(userdata.Id)
-		if err != nil {
-			log.Println("Login", err)
-			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-			return
-		}
-		ServeResult(w, r, userdata)
 	} else {
 		// Invalid username / password combination
 		ServeError(w, r, "Invalid username and/or password", 200)
 	}
 }
 
-func (t *UserServlet) fetch_user_by_name(username string) (*UserData, error) {
-	rows, err := t.db.Query(`SELECT id, username, password, password_salt,
-		email, first_name, last_name, class_year, account_created, last_login
-		FROM degreesheep.user WHERE username = ?`, username)
+func (t *UserServlet) process_login(user string) (*UserData, error) {
+	userdata, err := FetchUserByName(t.db, user)
+	if err != nil {
+		return nil, err
+	}
+	userdata.Session_token, err = t.session_manager.CreateSessionForUser(userdata.Id)
+	if err != nil {
+		return nil, err
+	}
+	return userdata, nil
+}
+
+func FetchUserByName(db *sql.DB, username string) (*UserData, error) {
+	rows, err := db.Query(`SELECT id, username, password, password_salt,
+		email, first_name, last_name, class_year, account_created, last_login,
+		password_reset_key FROM degreesheep.user WHERE username = ?`, username)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +181,8 @@ func (t *UserServlet) fetch_user_by_name(username string) (*UserData, error) {
 			&user_data.Last_name,
 			&user_data.Class_year,
 			&user_data.Account_created,
-			&user_data.Last_login); err != nil {
+			&user_data.Last_login,
+			&user_data.password_reset_key); err != nil {
 			return nil, err
 		}
 	}
@@ -189,8 +198,8 @@ func (t *UserServlet) fetch_user_by_name(username string) (*UserData, error) {
 // Get information for a user by UID
 func FetchUserById(db *sql.DB, uid int) (*UserData, error) {
 	rows, err := db.Query(`SELECT id, username, password, password_salt,
-		email, first_name, last_name, class_year, account_created, last_login
-		FROM degreesheep.user WHERE id = ?`, uid)
+		email, first_name, last_name, class_year, account_created, last_login,
+		password_reset_key FROM degreesheep.user WHERE id = ?`, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +219,8 @@ func FetchUserById(db *sql.DB, uid int) (*UserData, error) {
 			&user_data.Last_name,
 			&user_data.Class_year,
 			&user_data.Account_created,
-			&user_data.Last_login); err != nil {
+			&user_data.Last_login,
+			&user_data.password_reset_key); err != nil {
 			return nil, err
 		}
 	}
@@ -253,7 +263,7 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 	password_salt := t.generate_random_bytestring(64)
 	password_hash := t.generate_password_hash([]byte(pass), password_salt)
 
-	rows, err := t.db.Query(`INSERT INTO  degreesheep.user (
+	_, err = t.db.Exec(`INSERT INTO  degreesheep.user (
         username, password, password_salt, email, first_name,
         last_name, class_year ) VALUES ( ?, ?, ?, ?, ?, ?, ?)`, user, password_hash, password_salt, email, firstname, lastname, classyear)
 	if err != nil {
@@ -261,8 +271,73 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
-	defer rows.Close()
 
+	// Log in as the new user
+	userdata, err := t.process_login(user)
+	if err != nil {
+		log.Println("process_login", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	} else {
+		ServeResult(w, r, userdata)
+	}
+}
+
+// Forgot password action for users.
+// Generates a new recovery token, and emails it to the user.
+func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
+	user := r.Form.Get("user")
+
+	// Generate a recovery token and associate it with the account
+	reset_token := t.generate_random_alphanumeric(32)
+	_, err := t.db.Exec("UPDATE user SET password_reset_key = ? WHERE username = ?", reset_token, user)
+	if err != nil {
+		log.Println("Forgot_password", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	}
+	ServeError(w, r, fmt.Sprintf("Not implemented"), 501)
+}
+
+// Processing a password reset. Reads the reset token, checks it against the DB,
+// and if valid updates the user's salt and password.
+// Returns a new session.
+func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
+	user := r.Form.Get("user")
+	reset_key := r.Form.Get("reset_key")
+	new_pass := r.Form.Get("new_pass")
+
+	// Fetch the user information, including password reset key
+	user_data, err := FetchUserByName(t.db, user)
+	if err != nil {
+		log.Println("Reset_password", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	}
+
+	// If the reset keys do not match, they cannot reset the password
+	if user_data.password_reset_key != reset_key {
+		ServeError(w, r, fmt.Sprintf("Invalid password reset key"), 200)
+		return
+	}
+
+	// Generate a new salt and hash from the new password
+	password_salt := t.generate_random_bytestring(64)
+	password_hash := t.generate_password_hash([]byte(new_pass), password_salt)
+
+	// Update the user
+	t.db.Exec("UPDATE user SET password = ?, password_salt = ? WHERE username = ?",
+		password_hash, password_salt, user,
+	)
+
+	userdata, err := t.process_login(user)
+	if err != nil {
+		log.Println("process_login", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	} else {
+		ServeResult(w, r, userdata)
+	}
 }
 
 // Check if a username already exists in the degreesheep DB.
@@ -293,6 +368,15 @@ func (t *UserServlet) username_exists(user string) (bool, error) {
 
 // Create a random bytestring
 func (t *UserServlet) generate_random_bytestring(length int) []byte {
+	random_bytes := make([]byte, length)
+	for i := range random_bytes {
+		random_bytes[i] = byte(t.random.Int() & 0xff)
+	}
+	return random_bytes
+}
+
+// Create a random bytestring
+func (t *UserServlet) generate_random_alphanumeric(length int) []byte {
 	random_bytes := make([]byte, length)
 	for i := range random_bytes {
 		random_bytes[i] = byte(t.random.Int() & 0xff)
