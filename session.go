@@ -40,7 +40,21 @@ func NewSessionManager(server_config Config) *SessionManager {
 		log.Fatal("NewSessionManager", "Failed to open database:", err)
 	}
 	t.db = db
+
+	go t.stale_session_worker()
+
 	return t
+}
+
+// Goroutine that scans the database for expired tokens and drops them
+func (t *SessionManager) stale_session_worker() {
+	for {
+		_, err := t.db.Exec("DELETE FROM degreesheep.user_session WHERE expire_time < CURRENT_TIMESTAMP")
+		if err != nil {
+			log.Println("stale_session_worker", err)
+		}
+		time.Sleep(1 * time.Hour)
+	}
 }
 
 // Create a session, add it to the cache and plug it into the DB.
