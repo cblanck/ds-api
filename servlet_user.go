@@ -161,7 +161,18 @@ func (t *UserServlet) process_login(user string) (*UserData, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = t.update_last_login_for_user(user)
+	if err != nil {
+		log.Println("process_login", err)
+	}
+
 	return userdata, nil
+}
+
+// Update the last_login field for a user
+func (t *UserServlet) update_last_login_for_user(user string) error {
+	_, err := t.db.Exec("UPDATE degreesheep.user SET last_login = CURRENT_TIMESTAMP() WHERE username = ?", user)
+	return err
 }
 
 func FetchUserByName(db *sql.DB, username string) (*UserData, error) {
