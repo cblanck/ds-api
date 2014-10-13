@@ -12,9 +12,10 @@ type EmailManager struct {
 }
 
 type EmailMessage struct {
-	From string
-	To   string
-	Body string
+	From    string
+	To      string
+	Subject string
+	Body    string
 }
 
 func NewEmailManager(server_config *Config) *EmailManager {
@@ -30,10 +31,11 @@ func NewEmailManager(server_config *Config) *EmailManager {
 }
 
 // Create a message struct, populate it with the message details and queue it to be sent.
-func (t *EmailManager) QueueEmail(to, from, body string) {
+func (t *EmailManager) QueueEmail(to, from, subject, body string) {
 	message := new(EmailMessage)
 	message.To = to
 	message.From = from
+	message.Subject = subject
 	message.Body = body
 	t.mail_queue <- message
 }
@@ -44,6 +46,8 @@ func (t *EmailManager) process_mail_queue() {
 	for {
 		// Block until we get an email to send
 		message := <-t.mail_queue
+
+		log.Println("Sending message from", message.From, "to", message.To, "body", message.Body)
 
 		// Connect to the remote SMTP server.
 		conn, err := smtp.Dial(fmt.Sprintf("%s:%d", t.server_config.Mail.Host, t.server_config.Mail.Port))
@@ -82,7 +86,7 @@ func (t *EmailManager) process_mail_queue() {
 			log.Println("Mail: Data:", err)
 			continue
 		}
-		_, err = fmt.Fprintf(wc, message.Body)
+		_, err = fmt.Fprintf(wc, "Subject: %s\n\n%s", message.Subject, message.Body)
 		if err != nil {
 			log.Println("Mail: Fmt:", err)
 			continue

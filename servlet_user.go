@@ -341,6 +341,7 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t.email_manager.QueueEmail(user_data.Email, t.server_config.Mail.From,
+		"Password recovery for DegreeSheep",
 		fmt.Sprintf(`Hey %s,
 Someone (hopefully you) requested a password reset.
 To change your password, click this link (or copy and paste it into your browser).
