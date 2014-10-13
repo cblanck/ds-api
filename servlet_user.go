@@ -23,7 +23,9 @@ import (
 type UserServlet struct {
 	db              *sql.DB
 	random          *rand.Rand
+	server_config   *Config
 	session_manager *SessionManager
+	email_manager   *EmailManager
 }
 
 type UserData struct {
@@ -43,11 +45,13 @@ type UserData struct {
 
 const alphanumerics = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
-func NewUserServlet(server_config Config, session_manager *SessionManager) *UserServlet {
+func NewUserServlet(server_config *Config, session_manager *SessionManager, email_manager *EmailManager) *UserServlet {
 	t := new(UserServlet)
 	t.random = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	t.session_manager = session_manager
+	t.email_manager = email_manager
+	t.server_config = server_config
 
 	db, err := sql.Open("mysql", server_config.GetSqlURI())
 	if err != nil {
