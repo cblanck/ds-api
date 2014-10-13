@@ -40,5 +40,5 @@ echo -e "${AQUA}>${NORMAL} ${YELLOW}Starting deploy in `pwd`${NORMAL}"
 
 colorize make
 colorize /sbin/start-stop-daemon -p "$PIDFILE" -K -R INT/10/KILL --oknodo
-SERVER_OPTS="-c /opt/degree/stage/server.gcfg"
+SERVER_OPTS="-c /opt/degree/stage/server-stage.gcfg"
 colorize /sbin/start-stop-daemon -m -p "$PIDFILE" -b -S -a "$WORKDIR"/$BINARY -- $SERVER_OPTS

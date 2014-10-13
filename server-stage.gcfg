@@ -1,0 +1,20 @@
+[Mysql]
+mysqlUser = "degreesheep_api"
+mysqlPassword = "WyeaQrjrPhysyQZW"
+mysqlIPProto = "tcp"
+mysqlServerAddr = "localhost"
+mysqlServerPort = "3306"
+mysqlDatabase = "degreesheep"
+
+[Logging]
+LogFile = "/opt/degree/degreed.log"
+AccessLogFile = "/opt/degree/degreed_access.log"
+
+[Network]
+BindAddress = "0.0.0.0"
+BindPort = "1081"
+ReadTimeout = "10s"
+WriteTimeout = "10s"
+
+[Cache]
+SessionCacheSize = 1024
