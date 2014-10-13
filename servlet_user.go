@@ -332,7 +332,21 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
-	ServeError(w, r, fmt.Sprintf("Not implemented"), 501)
+
+	user_data, err := FetchUserByName(t.db, user)
+	if err != nil {
+		log.Println("Forgot_password", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	}
+
+	t.email_manager.QueueEmail(user_data.Email, t.server_config.Mail.From,
+		fmt.Sprintf(`Hey %s,
+Someone (hopefully you) requested a password reset.
+To change your password, click this link (or copy and paste it into your browser).
+http://degreesheep.com/forgot?recovery_key=%s`, user_data.First_name, reset_token))
+
+	ServeResult(w, r, "A password recovery email has been sent.")
 }
 
 // Processing a password reset. Reads the reset token, checks it against the DB,
