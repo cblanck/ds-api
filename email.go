@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/smtp"
 )
 
@@ -47,12 +49,27 @@ func (t *EmailManager) process_mail_queue() {
 		// Block until we get an email to send
 		message := <-t.mail_queue
 
+		host := fmt.Sprintf("%s:%d", t.server_config.Mail.Host, t.server_config.Mail.Port)
+
 		log.Println("Sending message from", message.From, "to", message.To, "body", message.Body)
 
 		// Connect to the remote SMTP server.
-		conn, err := smtp.Dial(fmt.Sprintf("%s:%d", t.server_config.Mail.Host, t.server_config.Mail.Port))
+		var conn net.Conn
+		var err error
+		if t.server_config.Mail.TLS {
+			conf := tls.Config{InsecureSkipVerify: true}
+			conn, err = tls.Dial("tcp", host, &conf)
+		} else {
+			conn, err = net.Dial("tcp", host)
+		}
 		if err != nil {
 			log.Println("Mail: Dial:", err)
+			continue
+		}
+
+		client, err := smtp.NewClient(conn, host)
+		if err != nil {
+			log.Println("Mail: NewClient:", err)
 			continue
 		}
 
@@ -64,24 +81,24 @@ func (t *EmailManager) process_mail_queue() {
 				t.server_config.Mail.Password,
 				t.server_config.Mail.Host,
 			)
-			if err := conn.Auth(auth); err != nil {
+			if err := client.Auth(auth); err != nil {
 				log.Println("Mail: Auth:", err)
 				continue
 			}
 		}
 
 		// Set the sender and recipient first
-		if err := conn.Mail(message.From); err != nil {
+		if err := client.Mail(message.From); err != nil {
 			log.Println("Mail: Mail:", err)
 			continue
 		}
-		if err := conn.Rcpt(message.To); err != nil {
+		if err := client.Rcpt(message.To); err != nil {
 			log.Println("Mail: Rcpt:", err)
 			continue
 		}
 
 		// Send the email body.
-		wc, err := conn.Data()
+		wc, err := client.Data()
 		if err != nil {
 			log.Println("Mail: Data:", err)
 			continue
@@ -99,7 +116,7 @@ func (t *EmailManager) process_mail_queue() {
 		}
 
 		// Send the QUIT command and close the connection.
-		err = conn.Quit()
+		err = client.Quit()
 		if err != nil {
 			log.Println("Mail: Quit:", err)
 			continue

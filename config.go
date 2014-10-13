@@ -42,6 +42,7 @@ type Config struct {
 		From      string
 		Host      string
 		Port      int
+		TLS       bool
 		Auth      bool
 		User      string
 		Password  string
