@@ -34,8 +34,8 @@ type Config struct {
 		LogToStderr bool
 	}
 
-	Cache struct {
-		SessionCacheSize int
+	Memcache struct {
+		Host string
 	}
 }
 
