@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 )
 
 const apache_log_format = `%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"`
@@ -96,4 +98,37 @@ func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
 		return
 	}
 	fmt.Fprintf(w, string(result_json))
+}
+
+// To avoid a massive case statement, use reflection to do a lookup of the given
+// method on the servlet. MethodByName will return a 'Zero Value' for methods
+// that aren't found, which will return false for .IsValid.
+// Performing Call() on an unexported method is a runtime violation, uppercasing
+// the first letter in the method name before reflection avoids locating
+// unexported functions. A little hacky, but it works.
+//
+// For more info, see http://golang.org/pkg/reflect/
+func HandleServletRequest(t interface{}, w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	method := r.Form.Get("method")
+
+	if method == "" {
+		ServeError(w, r, "No method specified", 405)
+		return
+	}
+
+	upper_method := strings.ToUpper(method)
+	exported_method := []byte(method)
+	exported_method[0] = upper_method[0]
+
+	servlet_value := reflect.ValueOf(t)
+	method_handler := servlet_value.MethodByName(string(exported_method))
+	if method_handler.IsValid() {
+		args := make([]reflect.Value, 2)
+		args[0] = reflect.ValueOf(w)
+		args[1] = reflect.ValueOf(r)
+		method_handler.Call(args)
+	} else {
+		ServeError(w, r, fmt.Sprintf("No such method: %s", method), 405)
+	}
 }
