@@ -1,2 +1,5 @@
 api
 *.log
+*.pid
+degreed
+debug*
