@@ -7,8 +7,8 @@ mysqlServerPort = "3306"
 mysqlDatabase = "degreesheep"
 
 [Logging]
-LogFile = "/opt/degree/degreed.log"
-AccessLogFile = "/opt/degree/degreed_access.log"
+LogFile = "/opt/degree/prod/degreed.log"
+AccessLogFile = "/opt/degree/prod/degreed_access.log"
 
 [Network]
 BindAddress = "0.0.0.0"
@@ -18,3 +18,13 @@ WriteTimeout = "10s"
 
 [Memcache]
 Host = "localhost:11211"
+
+[Mail]
+From = "no-reply@degreesheep.com"
+Host = "smtp.tufts.edu"
+Port = "25"
+TLS = "false"
+Auth = "false"
+User = ""
+Password = ""
+QueueSize = "100"

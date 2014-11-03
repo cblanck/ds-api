@@ -23,7 +23,9 @@ import (
 type UserServlet struct {
 	db              *sql.DB
 	random          *rand.Rand
+	server_config   *Config
 	session_manager *SessionManager
+	email_manager   *EmailManager
 }
 
 type UserData struct {
@@ -43,11 +45,13 @@ type UserData struct {
 
 const alphanumerics = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
-func NewUserServlet(server_config Config, session_manager *SessionManager) *UserServlet {
+func NewUserServlet(server_config *Config, session_manager *SessionManager, email_manager *EmailManager) *UserServlet {
 	t := new(UserServlet)
 	t.random = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	t.session_manager = session_manager
+	t.email_manager = email_manager
+	t.server_config = server_config
 
 	db, err := sql.Open("mysql", server_config.GetSqlURI())
 	if err != nil {
@@ -328,7 +332,22 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
 		return
 	}
-	ServeError(w, r, fmt.Sprintf("Not implemented"), 501)
+
+	user_data, err := FetchUserByName(t.db, user)
+	if err != nil {
+		log.Println("Forgot_password", err)
+		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
+		return
+	}
+
+	t.email_manager.QueueEmail(user_data.Email, t.server_config.Mail.From,
+		"Password recovery for DegreeSheep",
+		fmt.Sprintf(`Hey %s,
+Someone (hopefully you) requested a password reset.
+To change your password, click this link (or copy and paste it into your browser).
+http://degreesheep.com/forgot?recovery_key=%s`, user_data.First_name, reset_token))
+
+	ServeResult(w, r, "A password recovery email has been sent.")
 }
 
 // Processing a password reset. Reads the reset token, checks it against the DB,

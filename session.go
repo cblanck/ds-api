@@ -22,7 +22,7 @@ type Session struct {
 	Expires time.Time
 }
 
-func NewSessionManager(server_config Config) *SessionManager {
+func NewSessionManager(server_config *Config) *SessionManager {
 	t := new(SessionManager)
 
 	// Connect to memcached
