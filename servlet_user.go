@@ -74,7 +74,7 @@ func (t *UserServlet) CheckSession(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, fmt.Sprintf("Session has expired. Please log in again"), 200)
 		return
 	}
-	ServeError(w, r, fmt.Sprintf("Got valid session for %s", session.user.First_name), 200)
+	ServeError(w, r, fmt.Sprintf("Got valid session for %s", session.User.First_name), 200)
 }
 
 // Create a login session for a user.

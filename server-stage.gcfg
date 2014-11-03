@@ -16,5 +16,5 @@ BindPort = "1081"
 ReadTimeout = "10s"
 WriteTimeout = "10s"
 
-[Cache]
-SessionCacheSize = 1024
+[Memcache]
+Host = "localhost:11211"
