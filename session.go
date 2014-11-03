@@ -17,11 +17,6 @@ type SessionManager struct {
 	memcache *memcache.Client
 }
 
-type Session struct {
-	User    *UserData
-	Expires time.Time
-}
-
 func NewSessionManager(server_config *Config) *SessionManager {
 	t := new(SessionManager)
 
