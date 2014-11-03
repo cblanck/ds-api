@@ -28,21 +28,6 @@ type UserServlet struct {
 	email_manager   *EmailManager
 }
 
-type UserData struct {
-	Id                 int
-	Username           string
-	password           string
-	password_salt      string
-	Email              string
-	First_name         string
-	Last_name          string
-	Class_year         string
-	Account_created    time.Time
-	Last_login         time.Time
-	Session_token      string
-	password_reset_key string
-}
-
 const alphanumerics = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
 func NewUserServlet(server_config *Config, session_manager *SessionManager, email_manager *EmailManager) *UserServlet {
