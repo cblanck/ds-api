@@ -78,7 +78,7 @@ func ServeError(w http.ResponseWriter, r *http.Request, error string, errcode in
 	error_struct := ApiError{
 		Success: 0,
 		Error:   error}
-	error_json, err := json.Marshal(error_struct)
+	error_json, err := json.MarshalIndent(error_struct, "", "  ")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Internal server error", 500)
@@ -91,7 +91,7 @@ func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
 	result_struct := ApiSuccess{
 		Success: 1,
 		Return:  result}
-	result_json, err := json.Marshal(result_struct)
+	result_json, err := json.MarshalIndent(result_struct, "", "  ")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Internal server error", 500)
