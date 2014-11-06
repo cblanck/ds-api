@@ -59,51 +59,52 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 	// Create a slice of class maps.
 	// For each constraint, get a list of classes that satisfy those constraints
 	class_maps := make([]map[int]*Class, 0)
+	var matching_classes []*Class = nil
 
 	callsign := r.Form.Get("callsign")
+	class_number := r.Form.Get("classnum")
+	description := r.Form.Get("description")
 	if callsign != "" {
 		classes, err := get_classes_by_callsign(t.db, callsign)
 		if err != nil {
 			log.Println("get_classes_by_callsign:", err)
-			ServeError(w, r, "Internal server error", 500)
-			return
+			goto server_error
 		}
 		class_maps = append(class_maps, classes)
 	}
 
-	class_number := r.Form.Get("classnum")
 	if class_number != "" {
 		classnum, err := strconv.ParseInt(class_number, 10, 64)
 		if err != nil {
 			log.Println("get_classes_by_number:", err)
-			ServeError(w, r, "Internal server error", 500)
-			return
+			goto server_error
 		}
 
 		classes, err := get_classes_by_number(t.db, classnum)
 		if err != nil {
 			log.Println("get_classes_by_number:", err)
-			ServeError(w, r, "Internal server error", 500)
-			return
+			goto server_error
 		}
 		class_maps = append(class_maps, classes)
 	}
 
-	description := r.Form.Get("description")
 	if description != "" {
 		classes, err := get_classes_by_description(t.db, description)
 		if err != nil {
 			log.Println("get_classes_by_description:", err)
-			ServeError(w, r, "Internal server error", 500)
-			return
+			goto server_error
 		}
 		class_maps = append(class_maps, classes)
 	}
 
 	// Take the slice of maps and get a list of classes common to all maps
-	matching_classes := get_common_classes(class_maps)
+	matching_classes = get_common_classes(class_maps)
 
 	ServeResult(w, r, matching_classes)
+	return
+
+server_error:
+	ServeError(w, r, "Internal server error", 500)
 }
 
 // Takes a slice of maps of class_id -> class and returns a list of classes that
