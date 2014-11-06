@@ -23,3 +23,11 @@ type Session struct {
 	User    *UserData
 	Expires time.Time
 }
+
+type Class struct {
+	Id               int
+	Subject          int
+	Subject_callsign string
+	Course_number    int
+	Description      string
+}
