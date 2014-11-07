@@ -31,3 +31,32 @@ type Class struct {
 	Course_number    int
 	Description      string
 }
+
+type Instructor struct {
+	Id    int
+	Name  string
+	Email string
+}
+
+type Comment struct {
+	Id        int
+	Review_id int
+	User_id   int
+	Date      time.Time
+	Text      string
+	User      *UserData
+}
+
+type Review struct {
+	Id            int
+	User_id       int
+	Date          time.Time
+	Review        string
+	Title         string
+	Instructor_id int
+	Class_id      int
+	Recommend     bool
+	User          *UserData
+	Instructor    *Instructor
+	Comments      []*Comment
+}
