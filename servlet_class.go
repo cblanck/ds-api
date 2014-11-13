@@ -64,7 +64,7 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 	callsign := r.Form.Get("callsign")
 	class_number := r.Form.Get("classnum")
 	description := r.Form.Get("description")
-	category := r.Form.Get("category")
+	rule := r.Form.Get("rule")
 
 	if callsign != "" {
 		classes, err := get_classes_by_callsign(t.db, callsign)
@@ -99,13 +99,13 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 		class_maps = append(class_maps, classes)
 	}
 
-	if category != "" {
-		category_id, err := strconv.ParseInt(category, 10, 64)
+	if rule != "" {
+		rule_id, err := strconv.ParseInt(rule, 10, 64)
 		if err != nil {
 			log.Println("get_classes_by_category:", err)
 			goto server_error
 		}
-		classes, err := GetClassesForRuleById(t.db, category_id)
+		classes, err := GetClassesForRuleById(t.db, rule_id)
 		if err != nil {
 			log.Println("GetClassesForRuleById", err)
 			goto server_error
