@@ -133,7 +133,7 @@ func (t *ReviewServlet) PostComment(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, "OK")
 }
 
-func FetchCommentsByReviewId(db *sql.DB, id int) ([]*Comment, error) {
+func FetchCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
 	rows, err := db.Query(`SELECT id, review_id, user_id, date, text FROM
                            comment WHERE review_id = ?`, id)
 	if err != nil {

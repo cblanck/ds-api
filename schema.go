@@ -9,7 +9,7 @@ import (
  * Users
  */
 type UserData struct {
-	Id                 int
+	Id                 int64
 	Username           string
 	password           string
 	password_salt      string
@@ -49,7 +49,7 @@ func GetUserByName(db *sql.DB, username string) (*UserData, error) {
 }
 
 // Get information for a user by UID
-func GetUserById(db *sql.DB, uid int) (*UserData, error) {
+func GetUserById(db *sql.DB, uid int64) (*UserData, error) {
 	row := db.QueryRow(`SELECT id, username, password, password_salt,
 		email, first_name, last_name, class_year, account_created, last_login,
 		password_reset_key FROM degreesheep.user WHERE id = ?`, uid)
@@ -81,10 +81,10 @@ type Session struct {
  * Classes
  */
 type Class struct {
-	Id               int
-	Subject          int
+	Id               int64
+	Subject          int64
 	Subject_callsign string
-	Course_number    int
+	Course_number    int64
 	Description      string
 }
 
@@ -104,12 +104,12 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
  */
 
 type Instructor struct {
-	Id    int
+	Id    int64
 	Name  string
 	Email string
 }
 
-func GetInstructorById(db *sql.DB, id int) (*Instructor, error) {
+func GetInstructorById(db *sql.DB, id int64) (*Instructor, error) {
 	instructor := new(Instructor)
 	err := db.QueryRow("SELECT id, name, email FROM instructor WHERE id = ?", id).Scan(
 		&instructor.Id,
