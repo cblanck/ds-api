@@ -77,12 +77,26 @@ type Session struct {
 	Expires time.Time
 }
 
+/*
+ * Classes
+ */
 type Class struct {
 	Id               int
 	Subject          int
 	Subject_callsign string
 	Course_number    int
 	Description      string
+}
+
+// Get the details of a class by ID
+func GetClassById(db *sql.DB, id int64) (*Class, error) {
+	row := db.QueryRow(`SELECT class.id, class.subject, subject.callsign,
+    class.course_number, class.description FROM class, subject
+    WHERE class.subject = subject.id
+    AND class.id = ?`, id)
+	class := new(Class)
+	err := row.Scan(&class)
+	return class, err
 }
 
 /*
