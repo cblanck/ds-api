@@ -133,19 +133,6 @@ func (t *ReviewServlet) PostComment(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, "OK")
 }
 
-func FetchInstructorById(db *sql.DB, id int) (*Instructor, error) {
-	instructor := new(Instructor)
-	err := db.QueryRow("SELECT id, name, email FROM instructor WHERE id = ?", id).Scan(
-		&instructor.Id,
-		&instructor.Name,
-		&instructor.Email,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return instructor, nil
-}
-
 func FetchCommentsByReviewId(db *sql.DB, id int) ([]*Comment, error) {
 	rows, err := db.Query(`SELECT id, review_id, user_id, date, text FROM
                            comment WHERE review_id = ?`, id)
@@ -209,7 +196,7 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 	}
 	review.User = user
 
-	instructor, err := FetchInstructorById(t.db, review.Instructor_id)
+	instructor, err := GetInstructorById(t.db, review.Instructor_id)
 	if err != nil {
 		log.Println("GetReview", err)
 		ServeError(w, r, "Internal server error", 500)

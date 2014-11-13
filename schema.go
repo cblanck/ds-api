@@ -85,10 +85,27 @@ type Class struct {
 	Description      string
 }
 
+/*
+ * Instructor
+ */
+
 type Instructor struct {
 	Id    int
 	Name  string
 	Email string
+}
+
+func GetInstructorById(db *sql.DB, id int) (*Instructor, error) {
+	instructor := new(Instructor)
+	err := db.QueryRow("SELECT id, name, email FROM instructor WHERE id = ?", id).Scan(
+		&instructor.Id,
+		&instructor.Name,
+		&instructor.Email,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return instructor, nil
 }
 
 type Comment struct {
