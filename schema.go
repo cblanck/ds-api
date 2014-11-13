@@ -122,25 +122,53 @@ func GetInstructorById(db *sql.DB, id int64) (*Instructor, error) {
 	return instructor, nil
 }
 
+/*
+ * Comments
+ */
+
 type Comment struct {
-	Id        int
-	Review_id int
-	User_id   int
+	Id        int64
+	Review_id int64
+	User_id   int64
 	Date      time.Time
 	Text      string
 	User      *UserData
 }
 
+/*
+ * Review
+ */
+
 type Review struct {
-	Id            int
-	User_id       int
+	Id            int64
+	User_id       int64
 	Date          time.Time
 	Review        string
 	Title         string
-	Instructor_id int
-	Class_id      int
+	Instructor_id int64
+	Class_id      int64
 	Recommend     bool
 	User          *UserData
 	Instructor    *Instructor
 	Comments      []*Comment
+}
+
+func GetReviewById(db *sql.DB, id int64) (*Review, error) {
+	row := db.QueryRow(`SELECT id, user_id, date, review, title,
+                       instructor_id, class_id, recommend FROM review
+                       WHERE id = ?`, id)
+
+	review := new(Review)
+	if err := row.Scan(
+		&review.Id,
+		&review.User_id,
+		&review.Date,
+		&review.Review,
+		&review.Title,
+		&review.Instructor_id,
+		&review.Class_id,
+		&review.Recommend); err != nil {
+		return nil, err
+	}
+	return review, nil
 }

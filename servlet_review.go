@@ -5,6 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type ReviewServlet struct {
@@ -133,7 +134,7 @@ func (t *ReviewServlet) PostComment(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, "OK")
 }
 
-func FetchCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
+func GetCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
 	rows, err := db.Query(`SELECT id, review_id, user_id, date, text FROM
                            comment WHERE review_id = ?`, id)
 	if err != nil {
@@ -169,28 +170,22 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row := t.db.QueryRow(`SELECT id, user_id, date, review, title,
-                          instructor_id, class_id, recommend FROM review
-                          WHERE id = ?`, id)
-
-	review := new(Review)
-	if err := row.Scan(
-		&review.Id,
-		&review.User_id,
-		&review.Date,
-		&review.Review,
-		&review.Title,
-		&review.Instructor_id,
-		&review.Class_id,
-		&review.Recommend); err != nil {
-		log.Println("Review", err)
+	review_id, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		log.Println("GetReview: ParseInt:", err)
+		ServeError(w, r, "Invalid review ID", 400)
+		return
+	}
+	review, err := GetReviewById(t.db, review_id)
+	if err != nil {
+		log.Println("GetReview: GetReviewById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 
 	user, err := GetUserById(t.db, review.User_id)
 	if err != nil {
-		log.Println("GetReview", err)
+		log.Println("GetReview: GetUserById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -198,15 +193,15 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 
 	instructor, err := GetInstructorById(t.db, review.Instructor_id)
 	if err != nil {
-		log.Println("GetReview", err)
+		log.Println("GetReview: GetInstructorById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 	review.Instructor = instructor
 
-	comments, err := FetchCommentsByReviewId(t.db, review.Id)
+	comments, err := GetCommentsByReviewId(t.db, review.Id)
 	if err != nil {
-		log.Println("GetReview", err)
+		log.Println("GetReview: FetchCommentsByReviewId:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
