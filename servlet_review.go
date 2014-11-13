@@ -165,7 +165,7 @@ func FetchCommentsByReviewId(db *sql.DB, id int) ([]*Comment, error) {
 			&comment.Text); err != nil {
 			return nil, err
 		}
-		comment.User, err = FetchUserById(db, comment.User_id)
+		comment.User, err = GetUserById(db, comment.User_id)
 		if err != nil {
 			return nil, err
 		}
@@ -201,7 +201,7 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := FetchUserById(t.db, review.User_id)
+	user, err := GetUserById(t.db, review.User_id)
 	if err != nil {
 		log.Println("GetReview", err)
 		ServeError(w, r, "Internal server error", 500)

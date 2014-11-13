@@ -51,7 +51,7 @@ func (t *SessionManager) CreateSessionForUser(uid int) (string, error) {
 	session_uuid := uuid.New()
 
 	// Get the user's info
-	user_data, err := FetchUserById(t.db, uid)
+	user_data, err := GetUserById(t.db, uid)
 	if err != nil {
 		return "", err
 	}
@@ -100,7 +100,7 @@ func (t *SessionManager) GetSession(session_uuid string) (session_exists bool, s
 	if in_db {
 		// Load the session back into the cache and return it
 		user_session := new(Session)
-		user_session.User, err = FetchUserById(t.db, uid)
+		user_session.User, err = GetUserById(t.db, uid)
 		if err != nil {
 			return false, nil, err
 		}
