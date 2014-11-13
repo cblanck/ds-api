@@ -29,7 +29,7 @@ func (t *ReviewServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	HandleServletRequest(t, w, r)
 }
 
-func (t *ReviewServlet) ListReviews(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) List_reviews(w http.ResponseWriter, r *http.Request) {
 	class_id := r.Form.Get("class_id")
 
 	if class_id == "" {
@@ -39,7 +39,7 @@ func (t *ReviewServlet) ListReviews(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := t.db.Query("SELECT id, title, recommend FROM review WHERE class_id = ?", class_id)
 	if err != nil {
-		log.Println("ListReviews", err)
+		log.Println("List_reviews", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -52,7 +52,7 @@ func (t *ReviewServlet) ListReviews(w http.ResponseWriter, r *http.Request) {
 			&review.Id,
 			&review.Title,
 			&review.Recommend); err != nil {
-			log.Println("ListReviews", err)
+			log.Println("List_reviews", err)
 			ServeError(w, r, "Internal server error", 500)
 			return
 		}
@@ -61,17 +61,17 @@ func (t *ReviewServlet) ListReviews(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, review_list)
 }
 
-func (t *ReviewServlet) PostReview(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Post_review(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("PostReview", err)
+		log.Println("Post_review", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 	if !session_valid {
-		log.Println("PostReview", err)
+		log.Println("Post_review", err)
 		ServeError(w, r, "The specified session has expired", 401)
 		return
 	}
@@ -92,7 +92,7 @@ func (t *ReviewServlet) PostReview(w http.ResponseWriter, r *http.Request) {
                          instructor_id, class_id, recommend) VALUES (?, ?, ?, ?,?, ?)`,
 		session.User.Id, review, title, instructor_id, class_id, recommend)
 	if err != nil {
-		log.Println("PostReview", err)
+		log.Println("Post_review", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -100,17 +100,17 @@ func (t *ReviewServlet) PostReview(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, "OK")
 }
 
-func (t *ReviewServlet) PostComment(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Post_comment(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("PostComment", err)
+		log.Println("Post_comment", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 	if !session_valid {
-		log.Println("PostComment", err)
+		log.Println("Post_comment", err)
 		ServeError(w, r, "The specified session has expired", 401)
 		return
 	}
@@ -126,7 +126,7 @@ func (t *ReviewServlet) PostComment(w http.ResponseWriter, r *http.Request) {
 	_, err = t.db.Exec(`INSERT INTO comment (review_id, user_id, text) VALUES
                         (?, ?, ?)`, review_id, session.User.Id, text)
 	if err != nil {
-		log.Println("PostComment", err)
+		log.Println("Post_comment", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -162,7 +162,7 @@ func GetCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
 	return comments, nil
 }
 
-func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Get_review(w http.ResponseWriter, r *http.Request) {
 	id := r.Form.Get("review_id")
 
 	if id == "" {
@@ -172,20 +172,20 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 
 	review_id, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		log.Println("GetReview: ParseInt:", err)
+		log.Println("Get_review: ParseInt:", err)
 		ServeError(w, r, "Invalid review ID", 400)
 		return
 	}
 	review, err := GetReviewById(t.db, review_id)
 	if err != nil {
-		log.Println("GetReview: GetReviewById:", err)
+		log.Println("Get_review: GetReviewById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 
 	user, err := GetUserById(t.db, review.User_id)
 	if err != nil {
-		log.Println("GetReview: GetUserById:", err)
+		log.Println("Get_review: GetUserById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -193,7 +193,7 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 
 	instructor, err := GetInstructorById(t.db, review.Instructor_id)
 	if err != nil {
-		log.Println("GetReview: GetInstructorById:", err)
+		log.Println("Get_review: GetInstructorById:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
@@ -201,7 +201,7 @@ func (t *ReviewServlet) GetReview(w http.ResponseWriter, r *http.Request) {
 
 	comments, err := GetCommentsByReviewId(t.db, review.Id)
 	if err != nil {
-		log.Println("GetReview: FetchCommentsByReviewId:", err)
+		log.Println("Get_review: FetchCommentsByReviewId:", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
