@@ -58,7 +58,7 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 
 	// Create a slice of class maps.
 	// For each constraint, get a list of classes that satisfy those constraints
-	class_maps := make([]map[int]*Class, 0)
+	class_maps := make([]map[int64]*Class, 0)
 	var matching_classes []*Class = nil
 
 	callsign := r.Form.Get("callsign")
@@ -109,7 +109,7 @@ server_error:
 
 // Takes a slice of maps of class_id -> class and returns a list of classes that
 // are common to all maps.
-func get_common_classes(class_maps []map[int]*Class) []*Class {
+func get_common_classes(class_maps []map[int64]*Class) []*Class {
 	common_classes := make([]*Class, 0)
 
 	// If we didn't get any maps, return nothing.
@@ -133,7 +133,7 @@ func get_common_classes(class_maps []map[int]*Class) []*Class {
 }
 
 // Get a map of classid -> class for classes with a given callsign
-func get_classes_by_callsign(db *sql.DB, callsign string) (map[int]*Class, error) {
+func get_classes_by_callsign(db *sql.DB, callsign string) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
     class.course_number, class.description FROM class, subject
     WHERE class.subject = subject.id
@@ -147,7 +147,7 @@ func get_classes_by_callsign(db *sql.DB, callsign string) (map[int]*Class, error
 }
 
 // Get a map of classid -> class for classes with a given callsign
-func get_classes_by_number(db *sql.DB, classnum int64) (map[int]*Class, error) {
+func get_classes_by_number(db *sql.DB, classnum int64) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
     class.course_number, class.description FROM class, subject
     WHERE class.subject = subject.id
@@ -161,7 +161,7 @@ func get_classes_by_number(db *sql.DB, classnum int64) (map[int]*Class, error) {
 }
 
 // Get a map of classid -> class for classes with a matching description
-func get_classes_by_description(db *sql.DB, description string) (map[int]*Class, error) {
+func get_classes_by_description(db *sql.DB, description string) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
     class.course_number, class.description FROM class, subject
     WHERE class.subject = subject.id
@@ -176,8 +176,8 @@ func get_classes_by_description(db *sql.DB, description string) (map[int]*Class,
 
 // Convenience function the deals with loading a series of rows of classes into
 // a slice. Returns an error if the scan fails.
-func scan_class_rows(rows *sql.Rows) (map[int]*Class, error) {
-	classes := make(map[int]*Class)
+func scan_class_rows(rows *sql.Rows) (map[int64]*Class, error) {
+	classes := make(map[int64]*Class)
 
 	for rows.Next() {
 		class := new(Class)

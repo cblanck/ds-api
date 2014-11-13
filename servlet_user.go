@@ -11,7 +11,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
@@ -140,7 +139,7 @@ func (t *UserServlet) verify_password_for_user(user, pass string) (bool, error) 
 // Fetches a user's data and creates a session for them.
 // Returns a pointer to the userdata and an error.
 func (t *UserServlet) process_login(user string) (*UserData, error) {
-	userdata, err := FetchUserByName(t.db, user)
+	userdata, err := GetUserByName(t.db, user)
 	if err != nil {
 		return nil, err
 	}
@@ -160,82 +159,6 @@ func (t *UserServlet) process_login(user string) (*UserData, error) {
 func (t *UserServlet) update_last_login_for_user(user string) error {
 	_, err := t.db.Exec("UPDATE degreesheep.user SET last_login = CURRENT_TIMESTAMP() WHERE username = ?", user)
 	return err
-}
-
-// Fetches information about a user by username.
-func FetchUserByName(db *sql.DB, username string) (*UserData, error) {
-	rows, err := db.Query(`SELECT id, username, password, password_salt,
-		email, first_name, last_name, class_year, account_created, last_login,
-		password_reset_key FROM degreesheep.user WHERE username = ?`, username)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	num_rows := 0
-	user_data := new(UserData)
-	for rows.Next() {
-		num_rows++
-		if err := rows.Scan(
-			&user_data.Id,
-			&user_data.Username,
-			&user_data.password,
-			&user_data.password_salt,
-			&user_data.Email,
-			&user_data.First_name,
-			&user_data.Last_name,
-			&user_data.Class_year,
-			&user_data.Account_created,
-			&user_data.Last_login,
-			&user_data.password_reset_key); err != nil {
-			return nil, err
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	if num_rows == 0 {
-		return nil, errors.New(fmt.Sprintf("Failed to get data for %s - no such user", username))
-	}
-	return user_data, nil
-}
-
-// Get information for a user by UID
-func FetchUserById(db *sql.DB, uid int) (*UserData, error) {
-	rows, err := db.Query(`SELECT id, username, password, password_salt,
-		email, first_name, last_name, class_year, account_created, last_login,
-		password_reset_key FROM degreesheep.user WHERE id = ?`, uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	num_rows := 0
-	user_data := new(UserData)
-	for rows.Next() {
-		num_rows++
-		if err := rows.Scan(
-			&user_data.Id,
-			&user_data.Username,
-			&user_data.password,
-			&user_data.password_salt,
-			&user_data.Email,
-			&user_data.First_name,
-			&user_data.Last_name,
-			&user_data.Class_year,
-			&user_data.Account_created,
-			&user_data.Last_login,
-			&user_data.password_reset_key); err != nil {
-			return nil, err
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	if num_rows == 0 {
-		return nil, errors.New(fmt.Sprintf("Failed to get data for UID %d - no such user", uid))
-	}
-	return user_data, nil
 }
 
 // Create a new user, then allocate a new session.
@@ -318,7 +241,7 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user_data, err := FetchUserByName(t.db, user)
+	user_data, err := GetUserByName(t.db, user)
 	if err != nil {
 		log.Println("Forgot_password", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
@@ -344,7 +267,7 @@ func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
 	new_pass := r.Form.Get("new_pass")
 
 	// Fetch the user information, including password reset key
-	user_data, err := FetchUserByName(t.db, user)
+	user_data, err := GetUserByName(t.db, user)
 	if err != nil {
 		log.Println("Reset_password", err)
 		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)

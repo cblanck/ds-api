@@ -47,11 +47,11 @@ func (t *SessionManager) stale_session_worker() {
 }
 
 // Create a session, add it to the cache and plug it into the DB.
-func (t *SessionManager) CreateSessionForUser(uid int) (string, error) {
+func (t *SessionManager) CreateSessionForUser(uid int64) (string, error) {
 	session_uuid := uuid.New()
 
 	// Get the user's info
-	user_data, err := FetchUserById(t.db, uid)
+	user_data, err := GetUserById(t.db, uid)
 	if err != nil {
 		return "", err
 	}
@@ -100,7 +100,7 @@ func (t *SessionManager) GetSession(session_uuid string) (session_exists bool, s
 	if in_db {
 		// Load the session back into the cache and return it
 		user_session := new(Session)
-		user_session.User, err = FetchUserById(t.db, uid)
+		user_session.User, err = GetUserById(t.db, uid)
 		if err != nil {
 			return false, nil, err
 		}
@@ -119,7 +119,7 @@ func (t *SessionManager) GetSession(session_uuid string) (session_exists bool, s
 // Check if a session exists in the database and is still valid.
 // Returns three values - whether the token exists & is valid, the user id and
 // an error.
-func (t *SessionManager) get_session_from_db(session_uuid string) (exists bool, user_id int, expire_time time.Time, err error) {
+func (t *SessionManager) get_session_from_db(session_uuid string) (exists bool, user_id int64, expire_time time.Time, err error) {
 
 	rows, err := t.db.Query("SELECT user_id, expire_time FROM degreesheep.user_session WHERE token = ? AND expire_time > CURRENT_TIMESTAMP()", session_uuid)
 	if err != nil {
