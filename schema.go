@@ -199,7 +199,7 @@ type DSCategoryRule struct {
 	Ruletype         int
 	Class_id         sql.NullInt64
 	Category_id      sql.NullInt64
-	Inherited_id     sql.NullInt64
+	Parent_id        sql.NullInt64
 	Passfail_allowed sql.NullBool
 }
 
