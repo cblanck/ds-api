@@ -100,3 +100,23 @@ func GetClassesForRuleById(db *sql.DB, id int64) (map[int64]*Class, error) {
 	}
 	return class_map, nil
 }
+
+// Get list of categories
+func GetCategories(db *sql.DB) ([]*DSCategory, error) {
+	rows, err := db.Query("SELECT id, name from ds_category")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	categories := make([]*DSCategory, 0)
+	for rows.Next() {
+		category := new(DSCategory)
+		if err := rows.Scan(
+			&category.Id,
+			&category.Name); err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+	return categories, nil
+}
