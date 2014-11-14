@@ -95,7 +95,13 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
     WHERE class.subject = subject.id
     AND class.id = ?`, id)
 	class := new(Class)
-	err := row.Scan(&class)
+	err := row.Scan(
+		&class.Id,
+		&class.Subject,
+		&class.Subject_callsign,
+		&class.Course_number,
+		&class.Description,
+	)
 	return class, err
 }
 
@@ -171,4 +177,53 @@ func GetReviewById(db *sql.DB, id int64) (*Review, error) {
 		return nil, err
 	}
 	return review, nil
+}
+
+/*
+ * Category of classes (e.g. HASS, etc)
+ */
+
+type DSCategory struct {
+	Id    int
+	Name  string
+	rules []*DSCategoryRule
+}
+
+/*
+ * A category rule
+ */
+
+type DSCategoryRule struct {
+	Id               int
+	Category         int
+	Ruletype         int
+	Class_id         sql.NullInt64
+	Category_id      sql.NullInt64
+	Parent_id        sql.NullInt64
+	Passfail_allowed sql.NullBool
+}
+
+// Get the details of a category by ID
+func GetDSCategoryById(db *sql.DB, id int64) (*DSCategory, error) {
+	category := new(DSCategory)
+	err := db.QueryRow(
+		"SELECT id, name FROM ds_category WHERE id = ?",
+		id).Scan(&category.Id, &category.Name)
+	if err != nil {
+		return nil, err
+	}
+	category.rules, err = GetRulesForCategory(db, id)
+	if err != nil {
+		return nil, err
+	}
+	return category, nil
+}
+
+/*
+ * The enum replacement for ruletype
+ */
+
+type DSCategoryRuleType struct {
+	Id       int
+	Ruletype string
 }
