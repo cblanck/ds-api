@@ -67,7 +67,7 @@ func GetClassesForRule(db *sql.DB, rule *DSCategoryRule) (mapset.Set, error) {
 	return mapset.NewSet(), nil
 }
 
-// Get a set of class IDs that are matched by one or more of the given rules
+// Get a set of class IDs that are matched by and of the rules
 func GetClassesForRules(db *sql.DB, rules []*DSCategoryRule) (mapset.Set, error) {
 	classes := mapset.NewSet()
 	for _, rule := range rules {
