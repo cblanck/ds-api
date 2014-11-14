@@ -50,19 +50,19 @@ func (t *UserServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	HandleServletRequest(t, w, r)
 }
 
-func (t *UserServlet) CheckSession(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Validate(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("CheckSession", err)
+		log.Println("Validate", err)
 		ServeError(w, r, "Internal Server Error", 500)
 		return
 	}
 	if !session_valid {
-		ServeError(w, r, fmt.Sprintf("Session has expired. Please log in again"), 200)
+		ServeError(w, r, "Session has expired. Please log in again", 200)
 		return
 	}
-	ServeError(w, r, fmt.Sprintf("Got valid session for %s", session.User.First_name), 200)
+	ServeResult(w, r, session.User)
 }
 
 // Create a login session for a user.
