@@ -1,0 +1,256 @@
+package main
+
+import (
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
+	"log"
+	"net/http"
+	"strconv"
+)
+
+type DegreeSheetServlet struct {
+	db              *sql.DB
+	session_manager *SessionManager
+}
+
+func NewDegreeSheetServlet(server_config Config, session_manager *SessionManager) *DegreeSheetServlet {
+	t := new(DegreeSheetServlet)
+	t.session_manager = session_manager
+
+	db, err := sql.Open("mysql", server_config.GetSqlURI())
+	if err != nil {
+		log.Fatal("NewUserServlet", "Failed to open database:", err)
+	}
+	t.db = db
+	return t
+}
+
+func (t *DegreeSheetServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	HandleServletRequest(t, w, r)
+}
+
+func (t *DegreeSheetServlet) List_sheets(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+
+	if err != nil {
+		log.Println("List_sheets", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	rows, err := t.db.Query("SELECT id, name FROM degree_sheet WHERE user_id = ?", session.User.Id)
+	if err != nil {
+		log.Println("List_sheets", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+
+	defer rows.Close()
+	sheet_list := make([]*DegreeSheet, 0)
+	for rows.Next() {
+		sheet := new(DegreeSheet)
+		if err := rows.Scan(
+			&sheet.Id,
+			&sheet.Name); err != nil {
+			log.Println("List_sheets", err)
+			ServeError(w, r, "Internal server error", 500)
+			return
+		}
+		sheet_list = append(sheet_list, sheet)
+	}
+	ServeResult(w, r, sheet_list)
+}
+
+func (t *DegreeSheetServlet) Get_entries(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+
+	if err != nil {
+		log.Println("Get_entries", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	sheet_id := r.Form.Get("sheet_id")
+	var user_id int64
+	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
+		sheet_id).Scan(&user_id)
+
+	if err != nil {
+		log.Println("Get_entries", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if user_id != session.User.Id {
+		log.Println("Get_entries", err)
+		ServeError(w, r, "Unauthorized", 401)
+		return
+	}
+
+	rows, err := t.db.Query(
+		`SELECT id, sheet_id, class_id, year, semester, grade, passfail
+         FROM degree_sheet_entry WHERE sheet_id = ?`,
+		sheet_id)
+
+	if err != nil {
+		log.Println("Get_entries", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+
+	defer rows.Close()
+	entry_list := make([]*DegreeSheetEntry, 0)
+	for rows.Next() {
+		entry := new(DegreeSheetEntry)
+		if err := rows.Scan(
+			&entry.Id,
+			&entry.Sheet_id,
+			&entry.Class_id,
+			&entry.Year,
+			&entry.Semester,
+			&entry.Grade,
+			&entry.Passfail); err != nil {
+			log.Println("Get_entries", err)
+			ServeError(w, r, "Internal server error", 500)
+			return
+		}
+		entry.Class, err = GetClassById(t.db, entry.Class_id)
+		if err != nil {
+			log.Println("Get_entries", err)
+			ServeError(w, r, "Internal server error", 500)
+			return
+		}
+		entry_list = append(entry_list, entry)
+	}
+	ServeResult(w, r, entry_list)
+}
+
+func (t *DegreeSheetServlet) Edit_entry(w http.ResponseWriter, r *http.Request) {
+	class_id := r.Form.Get("class")
+	year := r.Form.Get("year")
+	semester := r.Form.Get("semester")
+	grade := r.Form.Get("grade")
+	passfail := r.Form.Get("passfail")
+	if class_id == "" || year == "" || semester == "" ||
+		grade == "" || passfail == "" {
+		ServeError(w, r, "Missing value for one or more fields", 400)
+		return
+	}
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+
+	if err != nil {
+		log.Println("Edit_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	entry_id := r.Form.Get("entry_id")
+	var sheet_id int64
+	err = t.db.QueryRow("SELECT sheet_id FROM degree_sheet_entry WHERE id = ?",
+		entry_id).Scan(&sheet_id)
+	var user_id int64
+	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
+		sheet_id).Scan(&user_id)
+
+	if err != nil {
+		log.Println("Edit_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if user_id != session.User.Id {
+		log.Println("Edit_entry", err)
+		ServeError(w, r, "Unauthorized", 401)
+		return
+	}
+
+	_, err = t.db.Exec(
+		`UPDATE degree_sheet_entry
+         SET class_id = ?, year = ?, semester = ?, grade = ?, passfail = ?
+         WHERE id = ?`, class_id, year, semester, grade, passfail, entry_id)
+	if err != nil {
+		log.Println("Edit_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, "OK")
+}
+
+func (t *DegreeSheetServlet) Add_sheet(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println("Add_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+	name := r.Form.Get("name")
+	template_id := r.Form.Get("template_id")
+
+	if name == "" || template_id == "" {
+		log.Println("Add_sheet", err)
+		ServeError(w, r, "Missing value for one or more fields", 400)
+		return
+	}
+
+	_, err = t.db.Exec(`INSERT INTO degree_sheet (user_id, template_id, name)
+                     VALUES (?, ?, ?)`, session.User.Id, template_id, name)
+	if err != nil {
+		log.Println("Add_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, "OK")
+}
+
+func (t *DegreeSheetServlet) Remove_sheet(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println("Remove_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+	sheet_id := r.Form.Get("sheet_id")
+	var user_id int64
+	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
+		sheet_id).Scan(&user_id)
+	if err != nil {
+		log.Println("Remove_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if user_id != session.User.Id {
+		log.Println("Remove_sheet", err)
+		ServeError(w, r, "Unauthorized", 401)
+		return
+	}
+	_, err = t.db.Exec("DELETE FROM degree_sheet WHERE id = ?", sheet_id)
+	if err != nil {
+		log.Println("Remove_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, "OK")
+}

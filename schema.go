@@ -227,3 +227,62 @@ type DSCategoryRuleType struct {
 	Id       int64
 	Ruletype string
 }
+
+/*
+ * Representation of a single degree sheet
+ */
+
+type DegreeSheet struct {
+	Id          int64
+	User_id     int64
+	Template_id int64
+	Name        string
+}
+
+func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
+	sheet := new(DegreeSheet)
+	err := db.QueryRow(
+		"SELECT id, user_id, template_id, name FROM degree_sheet WHERE id = ?",
+		id).Scan(
+		&sheet.Id,
+		&sheet.User_id,
+		&sheet.Template_id,
+		&sheet.Name)
+	if err != nil {
+		return nil, err
+	}
+	return sheet, nil
+}
+
+/*
+ * Degree sheet entry for a class
+ */
+
+type DegreeSheetEntry struct {
+	Id       int64
+	Sheet_id int64
+	Class_id int64
+	Class    *Class
+	Year     int64
+	Semester int64
+	Grade    string
+	Passfail bool
+}
+
+func GetDegreeSheetEntryById(db *sql.DB, id int64) (*DegreeSheetEntry, error) {
+	entry := new(DegreeSheetEntry)
+	err := db.QueryRow(
+		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE id = ?",
+		id).Scan(
+		&entry.Id,
+		&entry.Sheet_id,
+		&entry.Class_id,
+		&entry.Year,
+		&entry.Semester,
+		&entry.Grade,
+		&entry.Passfail)
+	if err != nil {
+		return nil, err
+	}
+	return entry, nil
+}
