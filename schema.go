@@ -184,7 +184,7 @@ func GetReviewById(db *sql.DB, id int64) (*Review, error) {
  */
 
 type DSCategory struct {
-	Id    int
+	Id    int64
 	Name  string
 	rules []*DSCategoryRule
 }
@@ -194,9 +194,9 @@ type DSCategory struct {
  */
 
 type DSCategoryRule struct {
-	Id               int
-	Category         int
-	Ruletype         int
+	Id               int64
+	Category         int64
+	Ruletype         int64
 	Class_id         sql.NullInt64
 	Category_id      sql.NullInt64
 	Parent_id        sql.NullInt64
@@ -224,6 +224,6 @@ func GetDSCategoryById(db *sql.DB, id int64) (*DSCategory, error) {
  */
 
 type DSCategoryRuleType struct {
-	Id       int
+	Id       int64
 	Ruletype string
 }
