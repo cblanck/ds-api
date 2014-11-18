@@ -120,3 +120,25 @@ func GetCategories(db *sql.DB) ([]*DSCategory, error) {
 	}
 	return categories, nil
 }
+
+// Get all categories that a class can be counted towards
+func GetCategoriesMatchedbyClass(db *sql.DB, class_id int64) ([]*DSCategory, error) {
+	all_categories, err := GetCategories(db)
+	if err != nil {
+		return nil, err
+	}
+	matching_categories := make([]*DSCategory, 0)
+
+	for _, category := range all_categories {
+		classes_matched, err := GetClassesForRuleById(db, category.Id)
+		if err != nil {
+			return nil, err
+		}
+		if _, exists := classes_matched[class_id]; exists {
+			matching_categories = append(matching_categories, category)
+		}
+	}
+
+	return matching_categories, nil
+
+}
