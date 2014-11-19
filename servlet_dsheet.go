@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"net/http"
@@ -27,6 +28,126 @@ func NewDegreeSheetServlet(server_config Config, session_manager *SessionManager
 
 func (t *DegreeSheetServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	HandleServletRequest(t, w, r)
+}
+
+// Remove a degree sheet entry by ID
+func (t *DegreeSheetServlet) Remove_entry(w http.ResponseWriter, r *http.Request) {
+	// Validate the session
+	session_uuid := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_uuid)
+	if err != nil {
+		log.Println("Remove_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	// Grab the entry
+	entry_id_s := r.Form.Get("entry_id")
+	entry_id, err := strconv.ParseInt(entry_id_s, 10, 64)
+	if err != nil {
+		ServeError(w, r, "Bad entry ID", 400)
+		return
+	}
+	entry, err := GetDegreeSheetEntryById(t.db, entry_id)
+	if err != nil {
+		log.Println("Remove_entry", err)
+		ServeError(w, r, "Internal server_error", 500)
+		return
+	}
+
+	// Fetch the relevant DegreeSheet
+	sheet, err := GetDegreeSheetById(t.db, entry.Sheet_id)
+	if err != nil {
+		log.Println("Remove_entry", err)
+		ServeError(w, r, "Internal server_error", 500)
+		return
+	}
+
+	// Verify that the logged in user owns the sheet
+	if sheet.User_id != session.User.Id {
+		ServeError(w, r, fmt.Sprintf("Sheet ID #%d is not owned by you", sheet.Id), 401)
+		return
+	}
+
+	// Drop the entry
+	_, err = t.db.Exec(`DELETE FROM degree_sheet_entry WHERE id = ?`, entry_id)
+	if err != nil {
+		log.Println("Remove_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, "Ok")
+}
+
+/* Adds a new DS entry to the specified degree sheet.
+* Params:
+- Valid session
+- Degree sheet ID
+- Class ID
+- Year
+- Semester
+- Grade
+- Whether it was pass/fail
+*/
+func (t *DegreeSheetServlet) Add_entry(w http.ResponseWriter, r *http.Request) {
+	// Validate the session
+	session_uuid := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_uuid)
+	if err != nil {
+		log.Println("Add_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	// Fetch the relevant DegreeSheet
+	sheet_id_s := r.Form.Get("sheet_id")
+	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
+	if err != nil {
+		log.Println("Add_entry", err)
+		ServeError(w, r, "Internal server_error", 500)
+		return
+	}
+	sheet, err := GetDegreeSheetById(t.db, sheet_id)
+	if err != nil {
+		log.Println("Add_entry", err)
+		ServeError(w, r, "Internal server_error", 500)
+		return
+	}
+
+	// Verify that the logged in user owns the sheet
+	if sheet.User_id != session.User.Id {
+		ServeError(w, r, fmt.Sprintf("Sheet ID #%d is not owned by you", sheet_id), 401)
+		return
+	}
+
+	// Create the entry
+	class_id := r.Form.Get("class_id")
+	year := r.Form.Get("year")
+	semester := r.Form.Get("semester")
+	grade := r.Form.Get("grade")
+	passfail := r.Form.Get("passfail")
+
+	_, err = t.db.Exec(`INSERT INTO degree_sheet_entry (
+        sheet_id, class_id, year, semester, grade, passfail
+    ) VALUES (
+        ?, ?, ?, ?, ?, ?
+    )`, sheet.Id, class_id, year, semester, grade, passfail)
+
+	if err != nil {
+		log.Println("Add_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+
+	ServeResult(w, r, "OK")
 }
 
 func (t *DegreeSheetServlet) List_sheets(w http.ResponseWriter, r *http.Request) {
