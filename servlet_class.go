@@ -39,6 +39,28 @@ func (t *ClassServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	HandleServletRequest(t, w, r)
 }
 
+// Takes a class ID, returns the categories that the class can be used to fulfil
+func (t *ClassServlet) Matched_categories(w http.ResponseWriter, r *http.Request) {
+	class_id_str := r.Form.Get("class_id")
+	if class_id_str == "" {
+		ServeError(w, r, "Missing class_id", 400)
+		return
+	}
+	class_id, err := strconv.ParseInt(class_id_str, 10, 64)
+	if err != nil {
+		log.Println("Matched_categories", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	categories, err := GetCategoriesMatchedbyClass(t.db, class_id)
+	if err != nil {
+		log.Println("Matched_categories", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, categories)
+}
+
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
 func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
