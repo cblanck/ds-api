@@ -55,7 +55,7 @@ func (t *DegreeSheetServlet) Remove_entry(w http.ResponseWriter, r *http.Request
 	entry, err := GetDegreeSheetEntryById(t.db, entry_id)
 	if err != nil {
 		log.Println("Remove_entry", err)
-		ServeError(w, r, "Internal server_error", 500)
+		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (t *DegreeSheetServlet) Remove_entry(w http.ResponseWriter, r *http.Request
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
-	ServeResult(w, r, "Ok")
+	ServeResult(w, r, "OK")
 }
 
 /* Adds a new DS entry to the specified degree sheet.
@@ -201,17 +201,26 @@ func (t *DegreeSheetServlet) Get_entries(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sheet_id := r.Form.Get("sheet_id")
-	var user_id int64
-	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
-		sheet_id).Scan(&user_id)
+	entry_list := make([]*DegreeSheetEntry, 0)
 
+	sheet_id_s := r.Form.Get("sheet_id")
+	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
 	if err != nil {
-		log.Println("Get_entries", err)
-		ServeError(w, r, "Internal server error", 500)
+		ServeError(w, r, "Bad sheet ID", 400)
 		return
 	}
-	if user_id != session.User.Id {
+	sheet, err := GetDegreeSheetById(t.db, sheet_id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ServeResult(w, r, entry_list)
+			return
+		} else {
+			log.Println("Get_entries", err)
+			ServeError(w, r, "Internal server error", 500)
+			return
+		}
+	}
+	if sheet.User_id != session.User.Id {
 		log.Println("Get_entries", err)
 		ServeError(w, r, "Unauthorized", 401)
 		return
@@ -223,13 +232,17 @@ func (t *DegreeSheetServlet) Get_entries(w http.ResponseWriter, r *http.Request)
 		sheet_id)
 
 	if err != nil {
-		log.Println("Get_entries", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		if err == sql.ErrNoRows {
+			ServeResult(w, r, entry_list)
+			return
+		} else {
+			log.Println("Get_entries", err)
+			ServeError(w, r, "Internal server error", 500)
+			return
+		}
 	}
 
 	defer rows.Close()
-	entry_list := make([]*DegreeSheetEntry, 0)
 	for rows.Next() {
 		entry := new(DegreeSheetEntry)
 		if err := rows.Scan(
@@ -256,7 +269,7 @@ func (t *DegreeSheetServlet) Get_entries(w http.ResponseWriter, r *http.Request)
 }
 
 func (t *DegreeSheetServlet) Edit_entry(w http.ResponseWriter, r *http.Request) {
-	class_id := r.Form.Get("class")
+	class_id := r.Form.Get("class_id")
 	year := r.Form.Get("year")
 	semester := r.Form.Get("semester")
 	grade := r.Form.Get("grade")
@@ -278,21 +291,25 @@ func (t *DegreeSheetServlet) Edit_entry(w http.ResponseWriter, r *http.Request) 
 		ServeError(w, r, "The specified session has expired", 401)
 		return
 	}
-
-	entry_id := r.Form.Get("entry_id")
-	var sheet_id int64
-	err = t.db.QueryRow("SELECT sheet_id FROM degree_sheet_entry WHERE id = ?",
-		entry_id).Scan(&sheet_id)
-	var user_id int64
-	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
-		sheet_id).Scan(&user_id)
-
+	entry_id_s := r.Form.Get("entry_id")
+	entry_id, err := strconv.ParseInt(entry_id_s, 10, 64)
+	if err != nil {
+		ServeError(w, r, "Bad entry ID", 400)
+		return
+	}
+	entry, err := GetDegreeSheetEntryById(t.db, entry_id)
 	if err != nil {
 		log.Println("Edit_entry", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
-	if user_id != session.User.Id {
+	sheet, err := GetDegreeSheetById(t.db, entry.Sheet_id)
+	if err != nil {
+		log.Println("Edit_entry", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if sheet.User_id != session.User.Id {
 		log.Println("Edit_entry", err)
 		ServeError(w, r, "Unauthorized", 401)
 		return
@@ -353,21 +370,31 @@ func (t *DegreeSheetServlet) Remove_sheet(w http.ResponseWriter, r *http.Request
 		ServeError(w, r, "The specified session has expired", 401)
 		return
 	}
-	sheet_id := r.Form.Get("sheet_id")
-	var user_id int64
-	err = t.db.QueryRow("SELECT user_id FROM degree_sheet WHERE id = ?",
-		sheet_id).Scan(&user_id)
+	sheet_id_s := r.Form.Get("sheet_id")
+	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
+	if err != nil {
+		ServeError(w, r, "Bad sheet ID", 400)
+		return
+	}
+	sheet, err := GetDegreeSheetById(t.db, sheet_id)
 	if err != nil {
 		log.Println("Remove_sheet", err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
-	if user_id != session.User.Id {
+	if sheet.User_id != session.User.Id {
 		log.Println("Remove_sheet", err)
 		ServeError(w, r, "Unauthorized", 401)
 		return
 	}
 	_, err = t.db.Exec("DELETE FROM degree_sheet WHERE id = ?", sheet_id)
+	if err != nil {
+		log.Println("Remove_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	_, err = t.db.Exec("DELETE FROM degree_sheet_entries WHERE sheet_id = ?",
+		sheet_id)
 	if err != nil {
 		log.Println("Remove_sheet", err)
 		ServeError(w, r, "Internal server error", 500)
