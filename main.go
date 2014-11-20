@@ -68,6 +68,7 @@ func init_server() {
 	api_handler.AddServlet("/user", NewUserServlet(&server_config, session_manager, email_manager))
 	api_handler.AddServlet("/class", NewClassServlet(&server_config, session_manager))
 	api_handler.AddServlet("/review", NewReviewServlet(server_config, session_manager))
+	api_handler.AddServlet("/degreesheet", NewDegreeSheetServlet(server_config, session_manager))
 
 	// Start listening to HTTP requests
 	if err := http_server.ListenAndServe(); err != nil {
