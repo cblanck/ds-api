@@ -191,7 +191,7 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 	// Create the user
 	_, err = t.db.Exec(`INSERT INTO  degreesheep.user (
         username, email, first_name,
-        last_name, class_year ) VALUES ( ?, ?, ?, ?, ?, ?, ?)`,
+        last_name, class_year ) VALUES ( ?, ?, ?, ?, ?)`,
 		user, email, firstname, lastname, classyear)
 	if err != nil {
 		log.Println("Register", err)
