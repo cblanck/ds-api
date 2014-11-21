@@ -82,6 +82,7 @@ func main() {
 	// Load CLI args
 	flag.Parse()
 
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("Starting API server")
 
 	/*
