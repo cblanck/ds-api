@@ -15,14 +15,11 @@ import (
 
 const apache_log_format = `%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-agent}i"`
 
-type ApiError struct {
-	Success int
-	Error   string
-}
-
-type ApiSuccess struct {
-	Success int
-	Return  interface{}
+type ApiResult struct {
+	Success   int
+	Return    interface{}
+	Error     string
+	errorCode int
 }
 
 type Servlet interface{}
@@ -94,14 +91,8 @@ func GenerateMemcacheHash(servlet string, args map[string][]string) string {
 }
 
 // Store the result of an API request in memcached.
-// Should not be used for generics, as it encapsulates values in a ApiSuccess
-// struct before converting them to JSON.
-func SetCachedRequest(m *memcache.Client, key string, value interface{}) {
-	result_struct := ApiSuccess{
-		Success: 1,
-		Return:  value,
-	}
-	result_json, err := json.MarshalIndent(result_struct, "", "  ")
+func SetCachedRequest(m *memcache.Client, key string, value *ApiResult) {
+	result_json, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		log.Println(err)
 	}
@@ -143,9 +134,10 @@ func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// If no handler exists, fail with a Bad Request message.
 		method_handler, method_cacheable := GetMethodForRequest(servlet, method)
 		if method_handler == nil {
-			ServeError(w, r,
-				fmt.Sprintf("Servlet %s No such method '%s'", r.RequestURI, method),
-				400)
+			ServeData(w, r,
+				APIError(
+					fmt.Sprintf("Servlet %s No such method '%s'", r.RequestURI, method),
+					400))
 			return
 		}
 
@@ -154,62 +146,68 @@ func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if method_cacheable {
 			mc_key = GenerateMemcacheHash(r.RequestURI, r.Form)
 			if request_cached, cached_value := GetCachedRequest(t.Memcached, mc_key); request_cached {
-				ServeRawResult(w, r, cached_value)
+				ServeRawData(w, r, cached_value)
 				return
 			}
 		}
 
 		// Perform the method call and unpack the reflect.Value response
-		// The prototype for the method returns a single interface{}
+		// The prototype for the method returns a single interface{}, which we
+		// assert is an ApiResult struct pointer
 		args := make([]reflect.Value, 1)
 		args[0] = reflect.ValueOf(r)
 		response_value := method_handler.Call(args)
-		var response_data interface{} = nil
+		var response_data *ApiResult = nil
 		if len(response_value) == 1 {
-			response_data = response_value[0].Interface
+			response_data = response_value[0].Interface().(*ApiResult)
 		}
 
-		if response_value != nil {
+		if response_data != nil {
 			if method_cacheable {
-				SetCachedRequest(t.Memcached, mc_key, response_value)
+				SetCachedRequest(t.Memcached, mc_key, response_data)
 			}
-			ServeResult(w, r, response_value)
+			ServeData(w, r, response_data)
 		} else {
-			ServeError(w, r, "Internal Server Error", 500)
+			ServeData(w, r, APIError("Internal Server Error", 500))
 		}
 	} else {
-		ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
+		ServeData(w, r, APIError(fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404))
 	}
 }
 
-func ServeError(w http.ResponseWriter, r *http.Request, error string, errcode int) {
-	error_struct := ApiError{
-		Success: 0,
-		Error:   error}
-	error_json, err := json.MarshalIndent(error_struct, "", "  ")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Internal server error", 500)
-		return
+func APIError(error string, errcode int) *ApiResult {
+	return &ApiResult{
+		Success:   0,
+		Error:     error,
+		errorCode: errcode,
+		Return:    nil,
 	}
-	http.Error(w, string(error_json), errcode)
 }
 
-func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
-	result_struct := ApiSuccess{
+func APISuccess(result interface{}) *ApiResult {
+	return &ApiResult{
 		Success: 1,
-		Return:  result}
-	result_json, err := json.MarshalIndent(result_struct, "", "  ")
+		Return:  result,
+	}
+}
+
+// JSON encode an ApiResult and write it to the HTTP response.
+// Also sets the error code if the ApiResult is an error.
+func ServeData(w http.ResponseWriter, r *http.Request, data *ApiResult) {
+	data_json, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "Internal server error", 500)
 		return
 	}
-	fmt.Fprintf(w, string(result_json))
+	if data.Success == 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	fmt.Fprintf(w, string(data_json))
 }
 
 // Write a raw JSON result, e.g. the return of CacheGetRequest
-func ServeRawResult(w http.ResponseWriter, r *http.Request, result []byte) {
+func ServeRawData(w http.ResponseWriter, r *http.Request, result []byte) {
 	fmt.Fprintf(w, "%s", result)
 }
 
