@@ -25,15 +25,19 @@ type ApiSuccess struct {
 	Return  interface{}
 }
 
+type Servlet interface{}
+
 type ApiHandler struct {
-	Servlets  map[string]func(http.ResponseWriter, *http.Request)
+	Servlets  map[string]Servlet
 	AccessLog *apachelog.ApacheLog
+	Memcached *memcache.Client
 }
 
 func NewApiHandler(server_config *Config) *ApiHandler {
 	h := new(ApiHandler)
 	h.SetAccessLog(server_config)
-	h.Servlets = make(map[string]func(http.ResponseWriter, *http.Request))
+	h.Servlets = make(map[string]Servlet)
+	h.Memcached = memcache.New(server_config.Memcache.Host)
 	return h
 }
 
@@ -57,11 +61,7 @@ func (t *ApiHandler) SetAccessLog(server_config *Config) {
 	}
 }
 
-func (t *ApiHandler) AddServlet(endpoint string, handler http.Handler) {
-	t.Servlets[endpoint] = handler.ServeHTTP
-}
-
-func (t *ApiHandler) AddServletFunc(endpoint string, handler func(http.ResponseWriter, *http.Request)) {
+func (t *ApiHandler) AddServlet(endpoint string, handler Servlet) {
 	t.Servlets[endpoint] = handler
 }
 
