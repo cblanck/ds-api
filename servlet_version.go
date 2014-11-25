@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -13,6 +12,6 @@ func NewVersionServlet() *VersionServlet {
 	return t
 }
 
-func (t *VersionServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "{ \"success\":1, \"return\":{ \"build\":\"%s\"} }", build_version)
+func (t *VersionServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) interface{} {
+	return build_version
 }
