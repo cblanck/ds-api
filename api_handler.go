@@ -128,12 +128,55 @@ func GetCachedRequest(memcache *memcache.Client, key string) (bool, []byte) {
 	return true, cached_json.Value
 }
 
+// Deals with incoming HTTP requests. Checks if the appropriate servlet exists,
+// and if so gets the servlet method to handle the request.
+// If the method is cacheable, also deal with getting/setting cached values.
 func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	lw := apachelog.NewLoggingWriter(w, r, t.AccessLog)
 	defer lw.EmitLog()
 
 	if servlet, servlet_exists := t.Servlets[r.RequestURI]; servlet_exists {
-		servlet(w, r)
+		r.ParseForm()
+		method := r.Form.Get("method")
+
+		// Try and get a pointer to the handler method for the request
+		// If no handler exists, fail with a Bad Request message.
+		method_handler, method_cacheable := GetMethodForRequest(servlet, method)
+		if method_handler == nil {
+			ServeError(w, r,
+				fmt.Sprintf("Servlet %s No such method '%s'", r.RequestURI, method),
+				400)
+			return
+		}
+
+		// If the method is cacheable, try and fetch a cached version
+		var mc_key string
+		if method_cacheable {
+			mc_key = GenerateMemcacheHash(r.RequestURI, r.Form)
+			if request_cached, cached_value := GetCachedRequest(t.Memcached, mc_key); request_cached {
+				ServeRawResult(w, r, cached_value)
+				return
+			}
+		}
+
+		// Perform the method call and unpack the reflect.Value response
+		// The prototype for the method returns a single interface{}
+		args := make([]reflect.Value, 1)
+		args[0] = reflect.ValueOf(r)
+		response_value := method_handler.Call(args)
+		var response_data interface{} = nil
+		if len(response_value) == 1 {
+			response_data = response_value[0].Interface
+		}
+
+		if response_value != nil {
+			if method_cacheable {
+				SetCachedRequest(t.Memcached, mc_key, response_value)
+			}
+			ServeResult(w, r, response_value)
+		} else {
+			ServeError(w, r, "Internal Server Error", 500)
+		}
 	} else {
 		ServeError(w, r, fmt.Sprintf("No matching servlet for request %s", r.RequestURI), 404)
 	}
@@ -176,29 +219,33 @@ func ServeRawResult(w http.ResponseWriter, r *http.Request, result []byte) {
 // Performing Call() on an unexported method is a runtime violation, uppercasing
 // the first letter in the method name before reflection avoids locating
 // unexported functions. A little hacky, but it works.
+// This method also determines whether a given method can be cached, based again
+// on the name that is given to the method. Methods prefixes with Cacheable will
+// be reported as such.
 //
 // For more info, see http://golang.org/pkg/reflect/
-func HandleServletRequest(t interface{}, w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	method := r.Form.Get("method")
-
+func GetMethodForRequest(t interface{}, method string) (*reflect.Value, bool) {
 	if method == "" {
-		ServeError(w, r, "No method specified", 405)
-		return
+		method = "ServeHTTP"
 	}
 
 	upper_method := strings.ToUpper(method)
 	exported_method := []byte(method)
 	exported_method[0] = upper_method[0]
 
+	// Check if the method is raw (not cacheable)
 	servlet_value := reflect.ValueOf(t)
 	method_handler := servlet_value.MethodByName(string(exported_method))
 	if method_handler.IsValid() {
-		args := make([]reflect.Value, 2)
-		args[0] = reflect.ValueOf(w)
-		args[1] = reflect.ValueOf(r)
-		method_handler.Call(args)
-	} else {
-		ServeError(w, r, fmt.Sprintf("No such method: %s", method), 405)
+		return &method_handler, false
 	}
+
+	// Check if the meythod exists and is cacheable
+	cacheable_method_name := fmt.Sprintf("Cacheable%s", exported_method)
+	method_handler = servlet_value.MethodByName(string(cacheable_method_name))
+	if method_handler.IsValid() {
+		return &method_handler, true
+	}
+
+	return nil, false
 }
