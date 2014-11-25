@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/rschlaikjer/go-apache-logformat"
 	"log"
 	"net/http"
@@ -63,6 +65,69 @@ func (t *ApiHandler) AddServletFunc(endpoint string, handler func(http.ResponseW
 	t.Servlets[endpoint] = handler
 }
 
+func GenerateMemcacheHash(servlet string, args map[string][]string) string {
+	// Generates a memcached key value for the calling function based on the
+	// key:value pairs passed in the HTTP form
+
+	// Concatenate and hash the argmap
+	joined_args := ""
+	for key, value := range args {
+		// Don't hash on session
+		if key == "session" {
+			continue
+		}
+		if len(value) == 0 {
+			continue
+		}
+		joined_args = fmt.Sprintf("%s:%s,%s", key, value[0], joined_args)
+	}
+	arg_hash := sha1.Sum([]byte(joined_args))
+
+	// Generate the memcached key
+	memcached_key := fmt.Sprintf(
+		"%s-%x",
+		servlet,
+		arg_hash,
+	)
+
+	return memcached_key
+}
+
+// Store the result of an API request in memcached.
+// Should not be used for generics, as it encapsulates values in a ApiSuccess
+// struct before converting them to JSON.
+func SetCachedRequest(m *memcache.Client, key string, value interface{}) {
+	result_struct := ApiSuccess{
+		Success: 1,
+		Return:  value,
+	}
+	result_json, err := json.MarshalIndent(result_struct, "", "  ")
+	if err != nil {
+		log.Println(err)
+	}
+	m.Set(
+		&memcache.Item{
+			Key:        key,
+			Value:      result_json,
+			Expiration: 600,
+		},
+	)
+}
+
+// Fetches a previously cached API request from memcached, or returns false if
+// none exists. Values should only have been set using the CacheSetRequest
+// method, and so should be value JSON consisting of a result encapsulated by
+// an ApiResult struct.
+func GetCachedRequest(memcache *memcache.Client, key string) (bool, []byte) {
+	// Try and retrieve the serialized data
+	cached_json, err := memcache.Get(key)
+	if err != nil {
+		// Errors are cache misses
+		return false, nil
+	}
+	return true, cached_json.Value
+}
+
 func (t *ApiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	lw := apachelog.NewLoggingWriter(w, r, t.AccessLog)
 	defer lw.EmitLog()
@@ -98,6 +163,11 @@ func ServeResult(w http.ResponseWriter, r *http.Request, result interface{}) {
 		return
 	}
 	fmt.Fprintf(w, string(result_json))
+}
+
+// Write a raw JSON result, e.g. the return of CacheGetRequest
+func ServeRawResult(w http.ResponseWriter, r *http.Request, result []byte) {
+	fmt.Fprintf(w, "%s", result)
 }
 
 // To avoid a massive case statement, use reflection to do a lookup of the given
