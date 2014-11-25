@@ -12,6 +12,6 @@ func NewVersionServlet() *VersionServlet {
 	return t
 }
 
-func (t *VersionServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) interface{} {
-	return build_version
+func (t *VersionServlet) ServeHTTP(r *http.Request) *ApiResult {
+	return APISuccess(build_version)
 }
