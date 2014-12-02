@@ -61,6 +61,17 @@ func (t *ClassServlet) Matched_categories(w http.ResponseWriter, r *http.Request
 	ServeResult(w, r, categories)
 }
 
+// Get a list of all classes we know
+func (t *ClassServlet) List(w http.ResponseWriter, r *http.Request) {
+	class_list, err := get_all_classes(t.db)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, class_list)
+}
+
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
 func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +179,32 @@ func get_common_classes(class_maps []map[int64]*Class) []*Class {
 		}
 	}
 	return common_classes
+}
+
+// Get a list of all classes in the DB
+func get_all_classes(db *sql.DB) ([]*Class, error) {
+	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
+    class.course_number, class.description FROM class, subject
+    WHERE class.subject = subject.id`)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	class_list := make([]*Class, 0)
+	for rows.Next() {
+		class := new(Class)
+		if err := rows.Scan(
+			&class.Id,
+			&class.Subject,
+			&class.Subject_callsign,
+			&class.Course_number,
+			&class.Description); err != nil {
+			return nil, err
+		}
+		class_list = append(class_list, class)
+	}
+	return class_list, nil
 }
 
 // Get a map of classid -> class for classes with a given callsign
