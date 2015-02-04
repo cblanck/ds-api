@@ -253,7 +253,7 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf(`Hey %s,
 Someone (hopefully you) requested a password reset.
 To change your password, click this link (or copy and paste it into your browser).
-http://degreesheep.com/forgot?recovery_key=%s`, user_data.First_name, reset_token))
+http://degreesheep.com/#/reset/%s/%s`, user_data.First_name, user, reset_token))
 
 	ServeResult(w, r, "A password recovery email has been sent.")
 }
