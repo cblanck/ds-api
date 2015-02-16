@@ -87,6 +87,7 @@ type Class struct {
 	Subject_description string
 	Course_number       int64
 	Description         string
+	Instructors         []*Instructor
 }
 
 // Get the details of a class by ID
@@ -104,6 +105,10 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
 		&class.Course_number,
 		&class.Description,
 	)
+	if err != nil {
+		return nil, err
+	}
+	class.Instructors, err = GetInstructorsForClass(db, class.Id)
 	return class, err
 }
 
@@ -128,6 +133,33 @@ func GetInstructorById(db *sql.DB, id int64) (*Instructor, error) {
 		return nil, err
 	}
 	return instructor, nil
+}
+
+func GetInstructorsForClass(db *sql.DB, class_id int64) ([]*Instructor, error) {
+	instructors := make([]*Instructor, 0)
+	rows, err := db.Query(`
+		SELECT DISTINCT(instructor.id), instructor.name,
+		instructor.email FROM class,class_section,instructor
+		WHERE class.id = class_section.class_id AND
+		class_section.instructor_id = instructor.id AND class.id = ?`,
+		class_id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		i := new(Instructor)
+		if err := rows.Scan(
+			&i.Id,
+			&i.Name,
+			&i.Email,
+		); err != nil {
+			return nil, err
+		}
+		instructors = append(instructors, i)
+	}
+	return instructors, nil
 }
 
 /*
