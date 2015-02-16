@@ -86,6 +86,7 @@ type Class struct {
 	Subject_callsign    string
 	Subject_description string
 	Course_number       int64
+	Name                string
 	Description         string
 	Instructors         []*Instructor
 }
@@ -93,7 +94,7 @@ type Class struct {
 // Get the details of a class by ID
 func GetClassById(db *sql.DB, id int64) (*Class, error) {
 	row := db.QueryRow(`SELECT class.id, class.subject, subject.callsign,
-	subject.description, class.course_number, class.description FROM class,
+	subject.description, class.course_number, class.name, class.description FROM class,
 	subject WHERE class.subject = subject.id
     AND class.id = ?`, id)
 	class := new(Class)
@@ -103,6 +104,7 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
 		&class.Subject_callsign,
 		&class.Subject_description,
 		&class.Course_number,
+		&class.Name,
 		&class.Description,
 	)
 	if err != nil {
