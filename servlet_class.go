@@ -72,6 +72,24 @@ func (t *ClassServlet) List(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, class_list)
 }
 
+// Return the information for a single class
+func (t *ClassServlet) Get(w http.ResponseWriter, r *http.Request) {
+	id_s := r.Form.Get("class_id")
+	id, err := strconv.ParseInt(id_s, 10, 64)
+	if err != nil {
+		log.Println("Class.Get:", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	c, err := GetClassById(t.db, id)
+	if err != nil {
+		log.Println("Class.Get:", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	ServeResult(w, r, c)
+}
+
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
 func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
