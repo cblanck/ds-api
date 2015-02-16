@@ -81,24 +81,26 @@ type Session struct {
  * Classes
  */
 type Class struct {
-	Id               int64
-	Subject          int64
-	Subject_callsign string
-	Course_number    int64
-	Description      string
+	Id                  int64
+	Subject_id          int64
+	Subject_callsign    string
+	Subject_description string
+	Course_number       int64
+	Description         string
 }
 
 // Get the details of a class by ID
 func GetClassById(db *sql.DB, id int64) (*Class, error) {
 	row := db.QueryRow(`SELECT class.id, class.subject, subject.callsign,
-    class.course_number, class.description FROM class, subject
-    WHERE class.subject = subject.id
+	subject.description, class.course_number, class.description FROM class,
+	subject WHERE class.subject = subject.id
     AND class.id = ?`, id)
 	class := new(Class)
 	err := row.Scan(
 		&class.Id,
-		&class.Subject,
+		&class.Subject_id,
 		&class.Subject_callsign,
+		&class.Subject_description,
 		&class.Course_number,
 		&class.Description,
 	)

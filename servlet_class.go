@@ -202,7 +202,7 @@ func get_common_classes(class_maps []map[int64]*Class) []*Class {
 // Get a list of all classes in the DB
 func get_all_classes(db *sql.DB) ([]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-    class.course_number, class.description FROM class, subject
+	subject.description, class.course_number, class.description FROM class, subject
     WHERE class.subject = subject.id`)
 
 	if err != nil {
@@ -214,8 +214,9 @@ func get_all_classes(db *sql.DB) ([]*Class, error) {
 		class := new(Class)
 		if err := rows.Scan(
 			&class.Id,
-			&class.Subject,
+			&class.Subject_id,
 			&class.Subject_callsign,
+			&class.Subject_description,
 			&class.Course_number,
 			&class.Description); err != nil {
 			return nil, err
@@ -276,8 +277,9 @@ func scan_class_rows(rows *sql.Rows) (map[int64]*Class, error) {
 		class := new(Class)
 		if err := rows.Scan(
 			&class.Id,
-			&class.Subject,
+			&class.Subject_id,
 			&class.Subject_callsign,
+			&class.Subject_description,
 			&class.Course_number,
 			&class.Description); err != nil {
 			return nil, err
