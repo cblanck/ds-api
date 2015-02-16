@@ -114,7 +114,7 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 
 	callsign := r.Form.Get("callsign")
 	class_number := r.Form.Get("classnum")
-	description := r.Form.Get("description")
+	class_name := r.Form.Get("classname")
 	rule := r.Form.Get("rule")
 
 	if callsign != "" {
@@ -141,10 +141,10 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 		class_maps = append(class_maps, classes)
 	}
 
-	if description != "" {
-		classes, err := get_classes_by_description(t.db, description)
+	if class_name != "" {
+		classes, err := get_classes_by_name(t.db, class_name)
 		if err != nil {
-			log.Println("get_classes_by_description:", err)
+			log.Println("get_classes_by_name:", err)
 			goto server_error
 		}
 		class_maps = append(class_maps, classes)
@@ -202,7 +202,7 @@ func get_common_classes(class_maps []map[int64]*Class) []*Class {
 // Get a list of all classes in the DB
 func get_all_classes(db *sql.DB) ([]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-	subject.description, class.course_number, class.description FROM class, subject
+	subject.description, class.course_number, classn.name, class.description FROM class, subject
     WHERE class.subject = subject.id`)
 
 	if err != nil {
@@ -218,6 +218,7 @@ func get_all_classes(db *sql.DB) ([]*Class, error) {
 			&class.Subject_callsign,
 			&class.Subject_description,
 			&class.Course_number,
+			&class.Name,
 			&class.Description); err != nil {
 			return nil, err
 		}
@@ -229,7 +230,7 @@ func get_all_classes(db *sql.DB) ([]*Class, error) {
 // Get a map of classid -> class for classes with a given callsign
 func get_classes_by_callsign(db *sql.DB, callsign string) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-    class.course_number, class.description FROM class, subject
+    class.course_number, class.name, class.description FROM class, subject
     WHERE class.subject = subject.id
     AND subject.callsign LIKE ?`, callsign)
 
@@ -243,7 +244,7 @@ func get_classes_by_callsign(db *sql.DB, callsign string) (map[int64]*Class, err
 // Get a map of classid -> class for classes with a given callsign
 func get_classes_by_number(db *sql.DB, classnum int64) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-    class.course_number, class.description FROM class, subject
+    class.course_number, class.name, class.description FROM class, subject
     WHERE class.subject = subject.id
     AND class.course_number = ?`, classnum)
 
@@ -254,12 +255,12 @@ func get_classes_by_number(db *sql.DB, classnum int64) (map[int64]*Class, error)
 	return scan_class_rows(rows)
 }
 
-// Get a map of classid -> class for classes with a matching description
-func get_classes_by_description(db *sql.DB, description string) (map[int64]*Class, error) {
+// Get a map of classid -> class for classes with a matching name
+func get_classes_by_name(db *sql.DB, name string) (map[int64]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-    class.course_number, class.description FROM class, subject
+    class.course_number, class.name, class.description FROM class, subject
     WHERE class.subject = subject.id
-    AND class.description LIKE CONCAT(CONCAT('%',?),'%')`, description)
+    AND class.name LIKE CONCAT(CONCAT('%',?),'%')`, name)
 
 	if err != nil {
 		return nil, err
@@ -281,6 +282,7 @@ func scan_class_rows(rows *sql.Rows) (map[int64]*Class, error) {
 			&class.Subject_callsign,
 			&class.Subject_description,
 			&class.Course_number,
+			&class.Name,
 			&class.Description); err != nil {
 			return nil, err
 		}
