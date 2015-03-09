@@ -402,3 +402,14 @@ func (t *DegreeSheetServlet) Remove_sheet(w http.ResponseWriter, r *http.Request
 	}
 	ServeResult(w, r, "OK")
 }
+
+func (t *DegreeSheetServlet) Get_requirements_for_template(w http.ResponseWriter, r *http.Request) {
+	template_id_s := r.Form.Get("template_id")
+	template_id, err := strconv.ParseInt(template_id_s, 10, 64)
+	if err != nil {
+		ServeError(w, r, "Bad template ID", 400)
+		return
+	}
+	degree_template, err := GetDSCategoryById(t.db, template_id)
+	ServeResult(w, r, degree_template)
+}

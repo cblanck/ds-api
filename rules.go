@@ -30,7 +30,7 @@ func GetRulesForCategory(db *sql.DB, id int64) ([]*DSCategoryRule, error) {
 			&rule.Ruletype,
 			&rule.Class_id,
 			&rule.Category_id,
-			&rule.Parent_id,
+			&rule.Inherit_id,
 			&rule.Passfail_allowed); err != nil {
 			return nil, err
 		}
