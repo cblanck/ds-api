@@ -96,6 +96,114 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (t *UserServlet) Get(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "Session has expired. Please log in again", 200)
+		return
+	}
+	ServeResult(w, r, session.User)
+}
+
+func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "Session has expired. Please log in again", 200)
+		return
+	}
+
+	_, err = t.db.Exec(`
+		DELETE FROM degree_sheet, degree_sheet_entry
+		WHERE degree_sheet_entry.sheet_id = degree_sheet.id
+		AND degree_sheet.user_id = ?`, session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+
+	_, err = t.db.Exec("DELETE FROM review WHERE user_id = ?", session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+
+	_, err = t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+	ServeResult(w, r, "OK")
+}
+
+func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "Session has expired. Please log in again", 200)
+		return
+	}
+
+	pass := r.Form.Get("pass")
+	email := r.Form.Get("email")
+	firstname := r.Form.Get("firstname")
+	lastname := r.Form.Get("lastname")
+	classyear := r.Form.Get("classyear")
+
+	if pass != "" {
+		t.set_password_for_user(session.User.Username, pass)
+	}
+
+	if email != "" {
+		_, err := t.db.Exec("UPDATE user set email = ? WHERE id = ?", email, session.User.Id)
+		if err != nil {
+			ServeError(w, r, "Failed to update email", 500)
+			return
+		}
+	}
+
+	if firstname != "" {
+		_, err := t.db.Exec("UPDATE user set first_name = ? WHERE id = ?", firstname, session.User.Id)
+		if err != nil {
+			ServeError(w, r, "Failed to update firstname", 500)
+			return
+		}
+	}
+
+	if lastname != "" {
+		_, err := t.db.Exec("UPDATE user set last_name = ? WHERE id = ?", lastname, session.User.Id)
+		if err != nil {
+			ServeError(w, r, "Failed to update last_name", 500)
+			return
+		}
+	}
+
+	if classyear != "" {
+		_, err := t.db.Exec("UPDATE user set class_year = ? WHERE id = ?", classyear, session.User.Id)
+		if err != nil {
+			ServeError(w, r, "Failed to update classyear", 500)
+			return
+		}
+	}
+	ServeResult(w, r, "OK")
+}
+
 // Verify a password for a username.
 // Returns whether or not the password was valid and whether an error occurred.
 func (t *UserServlet) verify_password_for_user(user, pass string) (bool, error) {
