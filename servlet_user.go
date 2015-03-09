@@ -100,7 +100,7 @@ func (t *UserServlet) Get(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("Validate", err)
+		log.Println(err)
 		ServeError(w, r, "Internal Server Error", 500)
 		return
 	}
@@ -115,7 +115,7 @@ func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("Validate", err)
+		log.Println(err)
 		ServeError(w, r, "Internal Server Error", 500)
 		return
 	}
@@ -130,7 +130,7 @@ func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("Validate", err)
+		log.Println(err)
 		ServeError(w, r, "Internal Server Error", 500)
 		return
 	}
