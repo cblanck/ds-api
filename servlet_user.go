@@ -123,7 +123,11 @@ func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, "Session has expired. Please log in again", 200)
 		return
 	}
-	t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
+	_, err = t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
+	if err != nil {
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+	ServeResult(w, r, "OK")
 }
 
 func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +184,7 @@ func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
+	ServeResult(w, r, "OK")
 }
 
 // Verify a password for a username.
