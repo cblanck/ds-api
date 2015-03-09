@@ -123,8 +123,31 @@ func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
 		ServeError(w, r, "Session has expired. Please log in again", 200)
 		return
 	}
+
+	_, err = t.db.Exec(`
+		DELETE FROM degree_sheet, degree_sheet_entry
+		WHERE degree_sheet_entry.sheet_id = degree_sheet.id
+		AND degree_sheet.user_id = ?`, session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+
+	_, err = t.db.Exec("DELETE FROM degree_sheet where user_id = ?", session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+
+	_, err = t.db.Exec("DELETE FROM review WHERE user_id = ?", session.User.Id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+	}
+
 	_, err = t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
 	if err != nil {
+		log.Println(err)
 		ServeError(w, r, "Internal Server Error", 500)
 	}
 	ServeResult(w, r, "OK")
