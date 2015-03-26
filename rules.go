@@ -87,7 +87,7 @@ func GetClassesForRuleById(db *sql.DB, id int64) (map[int64]*Class, error) {
 		return nil, err
 	}
 	// Iterate over the rules for the category, and union the classes
-	class_id_set, err := GetClassesForRules(db, ds_category.rules)
+	class_id_set, err := GetClassesForRules(db, ds_category.Rules)
 	if err != nil {
 		return nil, err
 	}

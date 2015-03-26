@@ -222,7 +222,7 @@ func GetReviewById(db *sql.DB, id int64) (*Review, error) {
 type DSCategory struct {
 	Id    int64
 	Name  string
-	rules []*DSCategoryRule
+	Rules []*DSCategoryRule
 }
 
 /*
@@ -248,7 +248,7 @@ func GetDSCategoryById(db *sql.DB, id int64) (*DSCategory, error) {
 	if err != nil {
 		return nil, err
 	}
-	category.rules, err = GetRulesForCategory(db, id)
+	category.Rules, err = GetRulesForCategory(db, id)
 	if err != nil {
 		return nil, err
 	}
