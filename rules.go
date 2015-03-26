@@ -11,34 +11,6 @@ import (
 const RULE_CLASS = 1
 const RULE_CATEGORY = 2
 
-// Get a slice of DSCategoryRule objects associated with a given rule category
-func GetRulesForCategory(db *sql.DB, id int64) ([]*DSCategoryRule, error) {
-	rows, err := db.Query(`SELECT id, category, ruletype, class_id, category_id,
-    inherited_id, passfail_allowed FROM ds_category_rule WHERE category = ?`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	rules := make([]*DSCategoryRule, 0)
-
-	for rows.Next() {
-		rule := new(DSCategoryRule)
-		if err := rows.Scan(
-			&rule.Id,
-			&rule.Category,
-			&rule.Ruletype,
-			&rule.Class_id,
-			&rule.Category_id,
-			&rule.Inherit_id,
-			&rule.Passfail_allowed); err != nil {
-			return nil, err
-		}
-		rules = append(rules, rule)
-	}
-	return rules, nil
-}
-
 // Get a set of class IDs that are matched by a given rule struct
 func GetClassesForRule(db *sql.DB, rule *DSCategoryRule) (mapset.Set, error) {
 	switch rule.Ruletype {

@@ -231,7 +231,7 @@ type DSCategory struct {
 
 type DSCategoryRule struct {
 	Id               int64
-	Category         int64
+	category         int64
 	Ruletype         int64
 	Class_id         sql.NullInt64
 	Category_id      sql.NullInt64
@@ -253,6 +253,65 @@ func GetDSCategoryById(db *sql.DB, id int64) (*DSCategory, error) {
 		return nil, err
 	}
 	return category, nil
+}
+
+type Category struct {
+	Name               string
+	Subcategories      []*Category
+	Matching_class_ids []int64
+}
+
+func ExpandCategory(db *sql.DB, id int64) (*Category, error) {
+	cat := new(Category)
+	c, err := GetDSCategoryById(db, id)
+	if err != nil {
+		return nil, err
+	}
+	cat.Name = c.Name
+	cat.Subcategories = make([]*Category, 0)
+	cat.Matching_class_ids = make([]int64, 0)
+
+	for _, r := range c.Rules {
+		if r.Ruletype == RULE_CLASS {
+			cat.Matching_class_ids = append(cat.Matching_class_ids, r.Class_id.Int64)
+		} else if r.Ruletype == RULE_CATEGORY {
+			c2, err := ExpandCategory(db, r.Category_id.Int64)
+			if err != nil {
+				return nil, err
+			}
+			cat.Subcategories = append(cat.Subcategories, c2)
+		}
+	}
+
+	return cat, err
+}
+
+// Get a slice of DSCategoryRule objects associated with a given rule category
+func GetRulesForCategory(db *sql.DB, id int64) ([]*DSCategoryRule, error) {
+	rows, err := db.Query(`SELECT id, category, ruletype, class_id, category_id,
+    inherited_id, passfail_allowed FROM ds_category_rule WHERE category = ?`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	rules := make([]*DSCategoryRule, 0)
+
+	for rows.Next() {
+		rule := new(DSCategoryRule)
+		if err := rows.Scan(
+			&rule.Id,
+			&rule.category,
+			&rule.Ruletype,
+			&rule.Class_id,
+			&rule.Category_id,
+			&rule.Inherit_id,
+			&rule.Passfail_allowed); err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+	return rules, nil
 }
 
 /*
