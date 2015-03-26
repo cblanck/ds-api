@@ -16,8 +16,8 @@ func GetClassesForCategoryById(db *sql.DB, id int64) (map[int64]*Class, error) {
 		return nil, err
 	}
 	class_map := make(map[int64]*Class)
-	for _, class_id := range class_category.Classes {
-		class_map[class_id], err = GetClassById(db, class_id)
+	for _, class := range class_category.Classes {
+		class_map[class.Id] = class
 		if err != nil {
 			return nil, err
 		}

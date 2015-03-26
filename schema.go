@@ -123,7 +123,7 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
 type ClassCategory struct {
 	Id      int
 	Name    string
-	Classes []int64
+	Classes []*Class
 }
 
 func GetClassCategoryById(db *sql.DB, id int64) (*ClassCategory, error) {
@@ -145,7 +145,7 @@ func GetClassCategoryById(db *sql.DB, id int64) (*ClassCategory, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	class_category.Classes = make([]int64, 0)
+	class_category.Classes = make([]*Class, 0)
 	var class_id int64
 	for rows.Next() {
 		if err := rows.Scan(
@@ -153,7 +153,11 @@ func GetClassCategoryById(db *sql.DB, id int64) (*ClassCategory, error) {
 		); err != nil {
 			return nil, err
 		}
-		class_category.Classes = append(class_category.Classes, class_id)
+		class, err := GetClassById(db, class_id)
+		if err != nil {
+			return nil, err
+		}
+		class_category.Classes = append(class_category.Classes, class)
 	}
 	return class_category, nil
 }
