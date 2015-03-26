@@ -410,6 +410,11 @@ func (t *DegreeSheetServlet) Get_requirements_for_template(w http.ResponseWriter
 		ServeError(w, r, "Bad template ID", 400)
 		return
 	}
-	degree_template, err := ExpandCategory(t.db, template_id)
+	degree_template, err := GetDSCategoryById(t.db, template_id)
+	if err != nil {
+		log.Println(err)
+		ServeError(w, r, "Internal Server Error", 500)
+		return
+	}
 	ServeResult(w, r, degree_template)
 }
