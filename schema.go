@@ -263,6 +263,34 @@ func GetReviewById(db *sql.DB, id int64) (*Review, error) {
 	return review, nil
 }
 
+func GetReviewsForClass(db *sql.DB, class_id int64) ([]*Review, error) {
+	rows, err := db.Query(`SELECT id, user_id, date, review, title,
+							instructor_id, class_id, recommend
+							FROM review WHERE class_id = ?`, class_id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	review_list := make([]*Review, 0)
+	for rows.Next() {
+		review := new(Review)
+		if err := rows.Scan(
+			&review.Id,
+			&review.User_id,
+			&review.Date,
+			&review.Review,
+			&review.Title,
+			&review.Instructor_id,
+			&review.Class_id,
+			&review.Recommend); err != nil {
+			return nil, err
+		}
+		review_list = append(review_list, review)
+	}
+	return review_list, nil
+}
+
 /*
  * A Degree sheet category (E.G. BSCS 2015 Foundation)
  */
