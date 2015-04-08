@@ -37,7 +37,7 @@ func (t *ReviewServlet) List_reviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := t.db.Query("SELECT id, title, recommend FROM review WHERE class_id = ?", class_id)
+	rows, err := t.db.Query("SELECT id, title, review, recommend FROM review WHERE class_id = ?", class_id)
 	if err != nil {
 		log.Println("List_reviews", err)
 		ServeError(w, r, "Internal server error", 500)
@@ -51,6 +51,7 @@ func (t *ReviewServlet) List_reviews(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(
 			&review.Id,
 			&review.Title,
+			&review.Review,
 			&review.Recommend); err != nil {
 			log.Println("List_reviews", err)
 			ServeError(w, r, "Internal server error", 500)
