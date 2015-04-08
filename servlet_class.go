@@ -156,9 +156,9 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 			log.Println("get_classes_by_category:", err)
 			goto server_error
 		}
-		classes, err := GetClassesForRuleById(t.db, rule_id)
+		classes, err := GetClassesForCategoryById(t.db, rule_id)
 		if err != nil {
-			log.Println("GetClassesForRuleById", err)
+			log.Println("GetClassesForCategoryById", err)
 			goto server_error
 		}
 		class_maps = append(class_maps, classes)

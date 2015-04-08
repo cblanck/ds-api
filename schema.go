@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -115,6 +117,52 @@ func GetClassById(db *sql.DB, id int64) (*Class, error) {
 }
 
 /*
+ * Category of classes (e.g. HASS, etc)
+ */
+
+type ClassCategory struct {
+	Id      int
+	Name    string
+	Classes []*Class
+}
+
+func GetClassCategoryById(db *sql.DB, id int64) (*ClassCategory, error) {
+	row := db.QueryRow(`SELECT class_category.id, class_category.name
+	FROM class_category WHERE id = ?`, id)
+	class_category := new(ClassCategory)
+	err := row.Scan(
+		&class_category.Id,
+		&class_category.Name,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the classes that the category matches
+	rows, err := db.Query(`SELECT class_id
+	FROM class_category_rule WHERE category = ?`, class_category.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	class_category.Classes = make([]*Class, 0)
+	var class_id int64
+	for rows.Next() {
+		if err := rows.Scan(
+			&class_id,
+		); err != nil {
+			return nil, err
+		}
+		class, err := GetClassById(db, class_id)
+		if err != nil {
+			return nil, err
+		}
+		class_category.Classes = append(class_category.Classes, class)
+	}
+	return class_category, nil
+}
+
+/*
  * Instructor
  */
 
@@ -215,28 +263,44 @@ func GetReviewById(db *sql.DB, id int64) (*Review, error) {
 	return review, nil
 }
 
-/*
- * Category of classes (e.g. HASS, etc)
- */
+func GetReviewsForClass(db *sql.DB, class_id int64) ([]*Review, error) {
+	rows, err := db.Query(`SELECT id, user_id, date, review, title,
+							instructor_id, class_id, recommend
+							FROM review WHERE class_id = ?`, class_id)
+	if err != nil {
+		return nil, err
+	}
 
-type DSCategory struct {
-	Id    int64
-	Name  string
-	rules []*DSCategoryRule
+	defer rows.Close()
+	review_list := make([]*Review, 0)
+	for rows.Next() {
+		review := new(Review)
+		if err := rows.Scan(
+			&review.Id,
+			&review.User_id,
+			&review.Date,
+			&review.Review,
+			&review.Title,
+			&review.Instructor_id,
+			&review.Class_id,
+			&review.Recommend); err != nil {
+			return nil, err
+		}
+		review_list = append(review_list, review)
+	}
+	return review_list, nil
 }
 
 /*
- * A category rule
+ * A Degree sheet category (E.G. BSCS 2015 Foundation)
  */
 
-type DSCategoryRule struct {
-	Id               int64
-	Category         int64
-	Ruletype         int64
-	Class_id         sql.NullInt64
-	Category_id      sql.NullInt64
-	Parent_id        sql.NullInt64
-	Passfail_allowed sql.NullBool
+type DSCategory struct {
+	Id         int64
+	Name       string
+	Inherits   []*DSCategory
+	Classes    []*Class
+	Categories []*ClassCategory
 }
 
 // Get the details of a category by ID
@@ -248,11 +312,84 @@ func GetDSCategoryById(db *sql.DB, id int64) (*DSCategory, error) {
 	if err != nil {
 		return nil, err
 	}
-	category.rules, err = GetRulesForCategory(db, id)
+	category.Inherits = make([]*DSCategory, 0)
+	category.Classes = make([]*Class, 0)
+	category.Categories = make([]*ClassCategory, 0)
+
+	err = loadRulesForCategory(db, category)
 	if err != nil {
 		return nil, err
 	}
 	return category, nil
+}
+
+/*
+ * A category rule
+ */
+
+type DSCategoryRule struct {
+	Id          int64
+	Category    int64
+	Ruletype    int64
+	Class_id    sql.NullInt64
+	Category_id sql.NullInt64
+	Inherit_id  sql.NullInt64
+}
+
+// Load in the rules for a category that has been instantiated with an ID
+func loadRulesForCategory(db *sql.DB, category *DSCategory) error {
+	rows, err := db.Query(`SELECT id, category, ruletype, class_id, category_id,
+    inherited_id FROM ds_category_rule WHERE category = ?`, category.Id)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var rule DSCategoryRule
+	for rows.Next() {
+		if err := rows.Scan(
+			&rule.Id,
+			&rule.Category,
+			&rule.Ruletype,
+			&rule.Class_id,
+			&rule.Category_id,
+			&rule.Inherit_id,
+		); err != nil {
+			return err
+		}
+		if rule.Ruletype == RULE_CLASS {
+			if rule.Class_id.Valid {
+				class, err := GetClassById(db, rule.Class_id.Int64)
+				if err != nil {
+					return err
+				}
+				category.Classes = append(category.Classes, class)
+			} else {
+				return errors.New(fmt.Sprintf("Malformed DSCategory rule #%d", rule.Id))
+			}
+		} else if rule.Ruletype == RULE_CATEGORY {
+			if rule.Category_id.Valid {
+				class_cat, err := GetClassCategoryById(db, rule.Category_id.Int64)
+				if err != nil {
+					return err
+				}
+				category.Categories = append(category.Categories, class_cat)
+			} else {
+				return errors.New(fmt.Sprintf("Malformed DSCategory rule #%d", rule.Id))
+			}
+		} else if rule.Ruletype == RULE_INHERIT {
+			if rule.Inherit_id.Valid {
+				ds_cat, err := GetDSCategoryById(db, rule.Inherit_id.Int64)
+				if err != nil {
+					return err
+				}
+				category.Inherits = append(category.Inherits, ds_cat)
+			} else {
+				return errors.New(fmt.Sprintf("Malformed DSCategory rule #%d", rule.Id))
+			}
+		}
+	}
+	return nil
 }
 
 /*

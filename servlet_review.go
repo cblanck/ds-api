@@ -30,35 +30,26 @@ func (t *ReviewServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *ReviewServlet) List_reviews(w http.ResponseWriter, r *http.Request) {
-	class_id := r.Form.Get("class_id")
+	class_id_s := r.Form.Get("class_id")
 
-	if class_id == "" {
+	if class_id_s == "" {
 		ServeError(w, r, "Missing value for one or more fields", 400)
 		return
 	}
 
-	rows, err := t.db.Query("SELECT id, title, review, recommend FROM review WHERE class_id = ?", class_id)
+	class_id, err := strconv.ParseInt(class_id_s, 10, 64)
 	if err != nil {
-		log.Println("List_reviews", err)
+		ServeError(w, r, "Invalid class ID", 400)
+		return
+	}
+
+	review_list, err := GetReviewsForClass(t.db, class_id)
+	if err != nil {
+		log.Println(err)
 		ServeError(w, r, "Internal server error", 500)
 		return
 	}
 
-	defer rows.Close()
-	review_list := make([]*Review, 0)
-	for rows.Next() {
-		review := new(Review)
-		if err := rows.Scan(
-			&review.Id,
-			&review.Title,
-			&review.Review,
-			&review.Recommend); err != nil {
-			log.Println("List_reviews", err)
-			ServeError(w, r, "Internal server error", 500)
-			return
-		}
-		review_list = append(review_list, review)
-	}
 	ServeResult(w, r, review_list)
 }
 
