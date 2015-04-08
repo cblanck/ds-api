@@ -164,7 +164,11 @@ func (t *DegreeSheetServlet) List_sheets(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	rows, err := t.db.Query("SELECT id, name FROM degree_sheet WHERE user_id = ?", session.User.Id)
+	rows, err := t.db.Query(`
+		SELECT degree_sheet.id, degree_sheet.name, degree_sheet.template_id, ds_category.name
+		FROM degree_sheet, ds_category
+		WHERE ds_category.id = degree_sheet.template_id
+		AND user_id = ?`, session.User.Id)
 	if err != nil {
 		log.Println("List_sheets", err)
 		ServeError(w, r, "Internal server error", 500)
@@ -177,7 +181,9 @@ func (t *DegreeSheetServlet) List_sheets(w http.ResponseWriter, r *http.Request)
 		sheet := new(DegreeSheet)
 		if err := rows.Scan(
 			&sheet.Id,
-			&sheet.Name); err != nil {
+			&sheet.Name,
+			&sheet.Template_Id,
+			&sheet.Template_Name); err != nil {
 			log.Println("List_sheets", err)
 			ServeError(w, r, "Internal server error", 500)
 			return

@@ -406,20 +406,24 @@ type DSCategoryRuleType struct {
  */
 
 type DegreeSheet struct {
-	Id          int64
-	User_id     int64
-	Template_id int64
-	Name        string
+	Id            int64
+	User_id       int64
+	Template_Id   int64
+	Template_Name string
+	Name          string
 }
 
 func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
 	sheet := new(DegreeSheet)
 	err := db.QueryRow(
-		"SELECT id, user_id, template_id, name FROM degree_sheet WHERE id = ?",
+		`SELECT degree_sheet.id, degree_sheet.user_id, degree_sheet.template_id,
+				degree_sheet.name, ds_category.name
+		FROM degree_sheet, ds_category
+		WHERE degree_sheet.template_id = ds_category.id AND degree_sheet.id = ?`,
 		id).Scan(
 		&sheet.Id,
 		&sheet.User_id,
-		&sheet.Template_id,
+		&sheet.Template_Id,
 		&sheet.Name)
 	if err != nil {
 		return nil, err
