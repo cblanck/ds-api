@@ -412,6 +412,7 @@ type DegreeSheet struct {
 	Template_Id   int64
 	Template_Name string
 	Name          string
+	Entries       []*DegreeSheetEntry
 }
 
 func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
@@ -432,6 +433,10 @@ func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
 	if err != nil {
 		return nil, err
 	}
+	sheet.Entries, err = GetDegreeSheetEntriesForSheet(db, sheet.Id)
+	if err != nil {
+		return nil, err
+	}
 	return sheet, nil
 }
 
@@ -448,6 +453,34 @@ type DegreeSheetEntry struct {
 	Semester int64
 	Grade    string
 	Passfail bool
+}
+
+func GetDegreeSheetEntriesForSheet(db *sql.DB, sheet_id int64) ([]*DegreeSheetEntry, error) {
+	rows, err := db.Query(
+		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE sheet_id = ?",
+		sheet_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]*DegreeSheetEntry, 0)
+	for rows.Next() {
+		entry := new(DegreeSheetEntry)
+		if err := rows.Scan(
+			&entry.Id,
+			&entry.Sheet_id,
+			&entry.Class_id,
+			&entry.Year,
+			&entry.Semester,
+			&entry.Grade,
+			&entry.Passfail); err != nil {
+			return nil, err
+		}
+		entry.Class, _ = GetClassById(db, entry.Class_id)
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }
 
 func GetDegreeSheetEntryById(db *sql.DB, id int64) (*DegreeSheetEntry, error) {
