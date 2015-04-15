@@ -366,6 +366,35 @@ func (t *DegreeSheetServlet) Add_sheet(w http.ResponseWriter, r *http.Request) {
 	ServeResult(w, r, "OK")
 }
 
+func (t *DegreeSheetServlet) Get_sheet(w http.ResponseWriter, r *http.Request) {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		log.Println("Add_sheet", err)
+		ServeError(w, r, "Internal server error", 500)
+		return
+	}
+	if !session_valid {
+		ServeError(w, r, "The specified session has expired", 401)
+		return
+	}
+
+	sheet_id_s := r.Form.Get("sheet_id")
+	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
+	if err != nil {
+		ServeError(w, r, "Bad sheet ID", 400)
+		return
+	}
+
+	degree_sheet, err := GetDegreeSheetById(t.db, sheet_id)
+	if degree_sheet.User_id != session.User.Id {
+		ServeError(w, r, "Specified sheet is not owned by you", 401)
+		return
+	}
+
+	ServeResult(w, r, degree_sheet)
+}
+
 func (t *DegreeSheetServlet) Remove_sheet(w http.ResponseWriter, r *http.Request) {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
