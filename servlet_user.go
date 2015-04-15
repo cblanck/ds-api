@@ -88,32 +88,28 @@ func (t *UserServlet) CacheableLogin(r *http.Request) *ApiResult {
 	}
 }
 
-func (t *UserServlet) Get(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Get(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
-	ServeResult(w, r, session.User)
+	return APISuccess(session.User)
 }
 
-func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Delete(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
 
 	_, err = t.db.Exec(`
@@ -122,34 +118,32 @@ func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
 		AND degree_sheet.user_id = ?`, session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
 
 	_, err = t.db.Exec("DELETE FROM review WHERE user_id = ?", session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
 
 	_, err = t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
-func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Modify(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
 
 	pass := r.Form.Get("pass")
@@ -165,35 +159,31 @@ func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
 	if email != "" {
 		_, err := t.db.Exec("UPDATE user set email = ? WHERE id = ?", email, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update email", 500)
-			return
+			return APIError("Failed to update email", 500)
 		}
 	}
 
 	if firstname != "" {
 		_, err := t.db.Exec("UPDATE user set first_name = ? WHERE id = ?", firstname, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update firstname", 500)
-			return
+			return APIError("Failed to update firstname", 500)
 		}
 	}
 
 	if lastname != "" {
 		_, err := t.db.Exec("UPDATE user set last_name = ? WHERE id = ?", lastname, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update last_name", 500)
-			return
+			return APIError("Failed to update last_name", 500)
 		}
 	}
 
 	if classyear != "" {
 		_, err := t.db.Exec("UPDATE user set class_year = ? WHERE id = ?", classyear, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update classyear", 500)
-			return
+			return APIError("Failed to update classyear", 500)
 		}
 	}
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
 // Verify a password for a username.
