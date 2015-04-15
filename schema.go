@@ -409,8 +409,8 @@ type DegreeSheet struct {
 	Id            int64
 	Created       time.Time
 	User_id       int64
-	Template_Id   int64
-	Template_Name string
+	Template_id   int64
+	Template_name string
 	Name          string
 	Entries       []*DegreeSheetEntry
 }
@@ -426,9 +426,9 @@ func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
 		&sheet.Id,
 		&sheet.Created,
 		&sheet.User_id,
-		&sheet.Template_Id,
+		&sheet.Template_id,
 		&sheet.Name,
-		&sheet.Template_Name,
+		&sheet.Template_name,
 	)
 	if err != nil {
 		return nil, err

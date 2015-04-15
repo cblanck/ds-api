@@ -184,8 +184,8 @@ func (t *DegreeSheetServlet) List_sheets(w http.ResponseWriter, r *http.Request)
 			&sheet.Id,
 			&sheet.Created,
 			&sheet.Name,
-			&sheet.Template_Id,
-			&sheet.Template_Name); err != nil {
+			&sheet.Template_id,
+			&sheet.Template_name); err != nil {
 			log.Println("List_sheets", err)
 			ServeError(w, r, "Internal server error", 500)
 			return
