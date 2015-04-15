@@ -25,47 +25,38 @@ func NewReviewServlet(server_config Config, session_manager *SessionManager) *Re
 	return t
 }
 
-func (t *ReviewServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	HandleServletRequest(t, w, r)
-}
-
-func (t *ReviewServlet) List_reviews(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) List_reviews(r *http.Request) *ApiResult {
 	class_id_s := r.Form.Get("class_id")
 
 	if class_id_s == "" {
-		ServeError(w, r, "Missing value for one or more fields", 400)
-		return
+		return APIError("Missing value for one or more fields", 400)
 	}
 
 	class_id, err := strconv.ParseInt(class_id_s, 10, 64)
 	if err != nil {
-		ServeError(w, r, "Invalid class ID", 400)
-		return
+		return APIError("Invalid class ID", 400)
 	}
 
 	review_list, err := GetReviewsForClass(t.db, class_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 
-	ServeResult(w, r, review_list)
+	return APISuccess(review_list)
 }
 
-func (t *ReviewServlet) Post_review(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Post_review(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println("Post_review", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	if !session_valid {
 		log.Println("Post_review", err)
-		ServeError(w, r, "The specified session has expired", 401)
-		return
+		return APIError("The specified session has expired", 401)
 	}
 
 	review := r.Form.Get("review")
@@ -76,8 +67,7 @@ func (t *ReviewServlet) Post_review(w http.ResponseWriter, r *http.Request) {
 
 	if review == "" || title == "" || instructor_id == "" || class_id == "" ||
 		recommend == "" {
-		ServeError(w, r, "Missing value for one or more fields", 400)
-		return
+		return APIError("Missing value for one or more fields", 400)
 	}
 
 	_, err = t.db.Exec(`INSERT INTO review (user_id, review, title,
@@ -85,45 +75,40 @@ func (t *ReviewServlet) Post_review(w http.ResponseWriter, r *http.Request) {
 		session.User.Id, review, title, instructor_id, class_id, recommend)
 	if err != nil {
 		log.Println("Post_review", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
-func (t *ReviewServlet) Post_comment(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Post_comment(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println("Post_comment", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	if !session_valid {
 		log.Println("Post_comment", err)
-		ServeError(w, r, "The specified session has expired", 401)
-		return
+		return APIError("The specified session has expired", 401)
 	}
 
 	review_id := r.Form.Get("review_id")
 	text := r.Form.Get("text")
 
 	if review_id == "" || text == "" {
-		ServeError(w, r, "Missing value for one or more fields", 400)
-		return
+		return APIError("Missing value for one or more fields", 400)
 	}
 
 	_, err = t.db.Exec(`INSERT INTO comment (review_id, user_id, text) VALUES
                         (?, ?, ?)`, review_id, session.User.Id, text)
 	if err != nil {
 		log.Println("Post_comment", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
 func GetCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
@@ -154,50 +139,44 @@ func GetCommentsByReviewId(db *sql.DB, id int64) ([]*Comment, error) {
 	return comments, nil
 }
 
-func (t *ReviewServlet) Get_review(w http.ResponseWriter, r *http.Request) {
+func (t *ReviewServlet) Get_review(r *http.Request) *ApiResult {
 	id := r.Form.Get("review_id")
 
 	if id == "" {
-		ServeError(w, r, "Missing value for one or more fields", 400)
-		return
+		return APIError("Missing value for one or more fields", 400)
 	}
 
 	review_id, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		log.Println("Get_review: ParseInt:", err)
-		ServeError(w, r, "Invalid review ID", 400)
-		return
+		return APIError("Invalid review ID", 400)
 	}
 	review, err := GetReviewById(t.db, review_id)
 	if err != nil {
 		log.Println("Get_review: GetReviewById:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 
 	user, err := GetUserById(t.db, review.User_id)
 	if err != nil {
 		log.Println("Get_review: GetUserById:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	review.User = user
 
 	instructor, err := GetInstructorById(t.db, review.Instructor_id)
 	if err != nil {
 		log.Println("Get_review: GetInstructorById:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	review.Instructor = instructor
 
 	comments, err := GetCommentsByReviewId(t.db, review.Id)
 	if err != nil {
 		log.Println("Get_review: FetchCommentsByReviewId:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	review.Comments = comments
 
-	ServeResult(w, r, review)
+	return APISuccess(review)
 }

@@ -46,29 +46,23 @@ func NewUserServlet(server_config *Config, session_manager *SessionManager, emai
 	return t
 }
 
-func (t *UserServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	HandleServletRequest(t, w, r)
-}
-
-func (t *UserServlet) Validate(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Validate(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println("Validate", err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return nil
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return nil
 	}
-	ServeResult(w, r, session.User)
+	return APISuccess(session.User)
 }
 
 // Create a login session for a user.
 // Session tokens are stored in a local cache, as well as back to the DB to
 // support multi-server architecture. A cache miss will result in a DB read.
-func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) CacheableLogin(r *http.Request) *ApiResult {
 	user := r.Form.Get("user")
 	pass := r.Form.Get("pass")
 
@@ -76,8 +70,7 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 	password_valid, err := t.verify_password_for_user(user, pass)
 	if err != nil {
 		log.Println("Login", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 
 	if password_valid {
@@ -85,43 +78,38 @@ func (t *UserServlet) Login(w http.ResponseWriter, r *http.Request) {
 		userdata, err := t.process_login(user)
 		if err != nil {
 			log.Println("process_login", err)
-			ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-			return
+			return nil
 		} else {
-			ServeResult(w, r, userdata)
+			return APISuccess(userdata)
 		}
 	} else {
 		// Invalid username / password combination
-		ServeError(w, r, "Invalid username and/or password", 200)
+		return APIError("Invalid username and/or password", 200)
 	}
 }
 
-func (t *UserServlet) Get(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Get(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
-	ServeResult(w, r, session.User)
+	return APISuccess(session.User)
 }
 
-func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Delete(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
 
 	_, err = t.db.Exec(`
@@ -130,34 +118,32 @@ func (t *UserServlet) Delete(w http.ResponseWriter, r *http.Request) {
 		AND degree_sheet.user_id = ?`, session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
 
 	_, err = t.db.Exec("DELETE FROM review WHERE user_id = ?", session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
 
 	_, err = t.db.Exec("DELETE FROM user where id = ?", session.User.Id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
+		return APIError("Internal Server Error", 500)
 	}
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
-func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Modify(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal Server Error", 500)
-		return
+		return APIError("Internal Server Error", 500)
 	}
 	if !session_valid {
-		ServeError(w, r, "Session has expired. Please log in again", 200)
-		return
+		return APIError("Session has expired. Please log in again", 200)
 	}
 
 	pass := r.Form.Get("pass")
@@ -173,35 +159,31 @@ func (t *UserServlet) Modify(w http.ResponseWriter, r *http.Request) {
 	if email != "" {
 		_, err := t.db.Exec("UPDATE user set email = ? WHERE id = ?", email, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update email", 500)
-			return
+			return APIError("Failed to update email", 500)
 		}
 	}
 
 	if firstname != "" {
 		_, err := t.db.Exec("UPDATE user set first_name = ? WHERE id = ?", firstname, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update firstname", 500)
-			return
+			return APIError("Failed to update firstname", 500)
 		}
 	}
 
 	if lastname != "" {
 		_, err := t.db.Exec("UPDATE user set last_name = ? WHERE id = ?", lastname, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update last_name", 500)
-			return
+			return APIError("Failed to update last_name", 500)
 		}
 	}
 
 	if classyear != "" {
 		_, err := t.db.Exec("UPDATE user set class_year = ? WHERE id = ?", classyear, session.User.Id)
 		if err != nil {
-			ServeError(w, r, "Failed to update classyear", 500)
-			return
+			return APIError("Failed to update classyear", 500)
 		}
 	}
-	ServeResult(w, r, "OK")
+	return APISuccess("OK")
 }
 
 // Verify a password for a username.
@@ -270,7 +252,7 @@ func (t *UserServlet) update_last_login_for_user(user string) error {
 }
 
 // Create a new user, then allocate a new session.
-func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Register(r *http.Request) *ApiResult {
 	user := r.Form.Get("user")
 	pass := r.Form.Get("pass")
 	email := r.Form.Get("email")
@@ -280,20 +262,17 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 
 	// If any of the fields (other than classyear) are nil, error out.
 	if user == "" || pass == "" || email == "" || firstname == "" || lastname == "" || classyear == "" {
-		ServeError(w, r, "Missing value for one or more fields", 200)
-		return
+		return APIError("Missing value for one or more fields", 400)
 	}
 
 	// Check if the username is already taken
 	name_exists, err := t.username_exists(user)
 	if err != nil {
 		log.Println("Register", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 	if name_exists {
-		ServeError(w, r, fmt.Sprintf("Username %s is already taken", user), 200)
-		return
+		return APIError(fmt.Sprintf("Username %s is already taken", user), 200)
 	}
 
 	// Create the user
@@ -303,8 +282,7 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 		user, email, firstname, lastname, classyear)
 	if err != nil {
 		log.Println("Register", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 
 	// Set the password for the user
@@ -314,10 +292,9 @@ func (t *UserServlet) Register(w http.ResponseWriter, r *http.Request) {
 	userdata, err := t.process_login(user)
 	if err != nil {
 		log.Println("process_login", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	} else {
-		ServeResult(w, r, userdata)
+		return APISuccess(userdata)
 	}
 }
 
@@ -337,7 +314,7 @@ func (t *UserServlet) set_password_for_user(user, pass string) error {
 
 // Forgot password action for users.
 // Generates a new recovery token, and emails it to the user.
-func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Forgot_password(r *http.Request) *ApiResult {
 	user := r.Form.Get("user")
 
 	// Generate a recovery token and associate it with the account
@@ -345,15 +322,13 @@ func (t *UserServlet) Forgot_password(w http.ResponseWriter, r *http.Request) {
 	_, err := t.db.Exec("UPDATE user SET password_reset_key = ? WHERE username = ?", reset_token, user)
 	if err != nil {
 		log.Println("Forgot_password", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 
 	user_data, err := GetUserByName(t.db, user)
 	if err != nil {
 		log.Println("Forgot_password", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 
 	t.email_manager.QueueEmail(user_data.Email, t.server_config.Mail.From,
@@ -363,13 +338,13 @@ Someone (hopefully you) requested a password reset.
 To change your password, click this link (or copy and paste it into your browser).
 http://degreesheep.com/#/reset/%s/%s`, user_data.First_name, user, reset_token))
 
-	ServeResult(w, r, "A password recovery email has been sent.")
+	return APISuccess("A password recovery email has been sent.")
 }
 
 // Processing a password reset. Reads the reset token, checks it against the DB,
 // and if valid updates the user's salt and password.
 // Returns a new session.
-func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
+func (t *UserServlet) Reset_password(r *http.Request) *ApiResult {
 	user := r.Form.Get("user")
 	reset_key := r.Form.Get("reset_key")
 	new_pass := r.Form.Get("new_pass")
@@ -378,14 +353,12 @@ func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
 	user_data, err := GetUserByName(t.db, user)
 	if err != nil {
 		log.Println("Reset_password", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	}
 
 	// If the reset keys do not match, they cannot reset the password
 	if user_data.password_reset_key != reset_key {
-		ServeError(w, r, fmt.Sprintf("Invalid password reset key"), 200)
-		return
+		return APIError("Invalid password reset key", 200)
 	}
 
 	// Update the user
@@ -395,10 +368,9 @@ func (t *UserServlet) Reset_password(w http.ResponseWriter, r *http.Request) {
 	userdata, err := t.process_login(user)
 	if err != nil {
 		log.Println("process_login", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return nil
 	} else {
-		ServeResult(w, r, userdata)
+		return APISuccess(userdata)
 	}
 }
 

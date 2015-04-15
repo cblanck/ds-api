@@ -35,76 +35,64 @@ func NewClassServlet(server_config *Config, session_manager *SessionManager) *Cl
 	return t
 }
 
-func (t *ClassServlet) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	HandleServletRequest(t, w, r)
-}
-
 // Takes a class ID, returns the categories that the class can be used to fulfil
-func (t *ClassServlet) Matched_categories(w http.ResponseWriter, r *http.Request) {
+func (t *ClassServlet) CacheableMatched_categories(r *http.Request) *ApiResult {
 	class_id_str := r.Form.Get("class_id")
 	if class_id_str == "" {
-		ServeError(w, r, "Missing class_id", 400)
-		return
+		return APIError("Missing class_id", 400)
 	}
 	class_id, err := strconv.ParseInt(class_id_str, 10, 64)
 	if err != nil {
 		log.Println("Matched_categories", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	categories, err := GetCategoriesMatchedbyClass(t.db, class_id)
 	if err != nil {
 		log.Println("Matched_categories", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
-	ServeResult(w, r, categories)
+	return APISuccess(categories)
 }
 
 // Get a list of all classes we know
-func (t *ClassServlet) List(w http.ResponseWriter, r *http.Request) {
+func (t *ClassServlet) CacheableList(r *http.Request) *ApiResult {
 	class_list, err := get_all_classes(t.db)
 	if err != nil {
 		log.Println(err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
-	ServeResult(w, r, class_list)
+	return APISuccess(class_list)
 }
 
 // Return the information for a single class
-func (t *ClassServlet) Get(w http.ResponseWriter, r *http.Request) {
+func (t *ClassServlet) CacheableGet(r *http.Request) *ApiResult {
 	id_s := r.Form.Get("class_id")
 	id, err := strconv.ParseInt(id_s, 10, 64)
 	if err != nil {
 		log.Println("Class.Get:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
 	c, err := GetClassById(t.db, id)
 	if err != nil {
 		log.Println("Class.Get:", err)
-		ServeError(w, r, "Internal server error", 500)
-		return
+		return APIError("Internal server error", 500)
 	}
-	ServeResult(w, r, c)
+	return APISuccess(c)
 }
 
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
-func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
+func (t *ClassServlet) CacheableSearch(r *http.Request) *ApiResult {
 	// Validate the session
 	session_id := r.Form.Get("session")
 	session_valid, _, err := t.session_manager.GetSession(session_id)
 	if err != nil {
 		log.Println("Search", err)
-		ServeError(w, r, fmt.Sprintf("Internal server error"), 500)
-		return
+		return APIError(fmt.Sprintf("Internal server error"), 500)
 	}
 	if !session_valid {
 		log.Println("Search", err)
-		ServeError(w, r, fmt.Sprintf("The specified session has expired"), 401)
-		return
+		return APIError(fmt.Sprintf("The specified session has expired"), 401)
 	}
 
 	// Create a slice of class maps.
@@ -167,11 +155,10 @@ func (t *ClassServlet) Search(w http.ResponseWriter, r *http.Request) {
 	// Take the slice of maps and get a list of classes common to all maps
 	matching_classes = get_common_classes(class_maps)
 
-	ServeResult(w, r, matching_classes)
-	return
+	return APISuccess(matching_classes)
 
 server_error:
-	ServeError(w, r, "Internal server error", 500)
+	return APIError("Internal server error", 500)
 }
 
 // Takes a slice of maps of class_id -> class and returns a list of classes that
