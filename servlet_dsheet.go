@@ -386,7 +386,7 @@ func (t *DegreeSheetServlet) Remove_sheet(r *http.Request) *ApiResult {
 	return APISuccess("OK")
 }
 
-func (t *DegreeSheetServlet) Get_requirements_for_template(r *http.Request) *ApiResult {
+func (t *DegreeSheetServlet) CacheableGet_requirements_for_template(r *http.Request) *ApiResult {
 	template_id_s := r.Form.Get("template_id")
 	template_id, err := strconv.ParseInt(template_id_s, 10, 64)
 	if err != nil {

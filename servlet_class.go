@@ -36,7 +36,7 @@ func NewClassServlet(server_config *Config, session_manager *SessionManager) *Cl
 }
 
 // Takes a class ID, returns the categories that the class can be used to fulfil
-func (t *ClassServlet) Matched_categories(r *http.Request) *ApiResult {
+func (t *ClassServlet) CacheableMatched_categories(r *http.Request) *ApiResult {
 	class_id_str := r.Form.Get("class_id")
 	if class_id_str == "" {
 		return APIError("Missing class_id", 400)
@@ -55,7 +55,7 @@ func (t *ClassServlet) Matched_categories(r *http.Request) *ApiResult {
 }
 
 // Get a list of all classes we know
-func (t *ClassServlet) List(r *http.Request) *ApiResult {
+func (t *ClassServlet) CacheableList(r *http.Request) *ApiResult {
 	class_list, err := get_all_classes(t.db)
 	if err != nil {
 		log.Println(err)
@@ -65,7 +65,7 @@ func (t *ClassServlet) List(r *http.Request) *ApiResult {
 }
 
 // Return the information for a single class
-func (t *ClassServlet) Get(r *http.Request) *ApiResult {
+func (t *ClassServlet) CacheableGet(r *http.Request) *ApiResult {
 	id_s := r.Form.Get("class_id")
 	id, err := strconv.ParseInt(id_s, 10, 64)
 	if err != nil {
@@ -82,7 +82,7 @@ func (t *ClassServlet) Get(r *http.Request) *ApiResult {
 
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
-func (t *ClassServlet) Search(r *http.Request) *ApiResult {
+func (t *ClassServlet) CacheableSearch(r *http.Request) *ApiResult {
 	// Validate the session
 	session_id := r.Form.Get("session")
 	session_valid, _, err := t.session_manager.GetSession(session_id)
