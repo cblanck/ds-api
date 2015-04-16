@@ -522,8 +522,16 @@ func GetPlannedClassesForUser(db *sql.DB, user_id int64) ([]*PlannedClass, error
 func AddPlannedClassForUser(db *sql.DB, user_id int64, class_id int64) error {
 	_, err := db.Exec(
 		`INSERT INTO planned_class (added, user_id, class_id)
-		 VALUES (CURRENT_TIMESTAMP(), ?, ?)`,
+		 VALUES (CURRENT_TIMESTAMP(), ?, ?)
+		 ON DUPLICATE KEY UPDATE added = CURRENT_TIMESTAMP()`,
 		user_id, class_id)
+	return err
+}
+
+func DeletePlannedClassForUser(db *sql.DB, class_id int64, user_id int64) error {
+	_, err := db.Exec(
+		`DELETE FROM planned_class WHERE class_id = ? AND user_id = ?`,
+		class_id, user_id)
 	return err
 }
 

@@ -411,7 +411,6 @@ func (t *DegreeSheetServlet) Add_planned_course(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 	if err != nil {
-		log.Println("Remove_sheet", err)
 		return APIError("Internal server error", 500)
 	}
 	if !session_valid {
@@ -425,6 +424,31 @@ func (t *DegreeSheetServlet) Add_planned_course(r *http.Request) *ApiResult {
 	}
 
 	err = AddPlannedClassForUser(t.db, session.User.Id, course_id)
+	if err != nil {
+		log.Println(err)
+		return APIError("Internal server error", 500)
+	}
+
+	return APISuccess("OK")
+}
+
+func (t *DegreeSheetServlet) Delete_planned_course(r *http.Request) *ApiResult {
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		return APIError("Internal server error", 500)
+	}
+	if !session_valid {
+		return APIError("The specified session has expired", 401)
+	}
+
+	course_id_s := r.Form.Get("course_id")
+	course_id, err := strconv.ParseInt(course_id_s, 10, 64)
+	if err != nil {
+		return APIError("Invalid course ID", 400)
+	}
+
+	err = DeletePlannedClassForUser(t.db, course_id, session.User.Id)
 	if err != nil {
 		log.Println(err)
 		return APIError("Internal server error", 500)
