@@ -483,6 +483,50 @@ func GetDegreeSheetEntriesForSheet(db *sql.DB, sheet_id int64) ([]*DegreeSheetEn
 	return entries, nil
 }
 
+/*
+ * Planned classes
+ */
+type PlannedClass struct {
+	Id       int64
+	Added    time.Time
+	Class_id int64
+	Class    *Class
+}
+
+func GetPlannedClassesForUser(db *sql.DB, user_id int64) ([]*PlannedClass, error) {
+	rows, err := db.Query(
+		`SELECT id, added, class_id FROM planned_class WHERE user_id = ?`,
+		user_id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	planned_classes := make([]*PlannedClass, 0)
+	for rows.Next() {
+		p_c := new(PlannedClass)
+		if err := rows.Scan(
+			&p_c.Id,
+			&p_c.Added,
+			&p_c.Class_id); err != nil {
+			return nil, err
+		}
+		p_c.Class, _ = GetClassById(db, p_c.Class_id)
+		planned_classes = append(planned_classes, p_c)
+	}
+
+	return planned_classes, nil
+}
+
+func AddPlannedClassForUser(db *sql.DB, user_id int64, class_id int64) error {
+	_, err := db.Exec(
+		`INSERT INTO planned_class (added, user_id, class_id)
+		 VALUES (CURRENT_TIMESTAMP(), ?, ?)`,
+		user_id, class_id)
+	return err
+}
+
 func GetDegreeSheetEntryById(db *sql.DB, id int64) (*DegreeSheetEntry, error) {
 	entry := new(DegreeSheetEntry)
 	err := db.QueryRow(
