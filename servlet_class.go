@@ -80,6 +80,20 @@ func (t *ClassServlet) CacheableGet(r *http.Request) *ApiResult {
 	return APISuccess(c)
 }
 
+func (t *ClassServlet) CacheableGet_classes_for_category(r *http.Request) *ApiResult {
+	id_s := r.Form.Get("category_id")
+	id, err := strconv.ParseInt(id_s, 10, 64)
+	if err != nil {
+		return APIError("Invalid category ID", 500)
+	}
+	c, err := GetClassCategoryById(t.db, id)
+	if err != nil {
+		log.Println(err)
+		return APIError("Internal server error", 500)
+	}
+	return APISuccess(c)
+}
+
 // Takes a variable number of constraints and outputs a list of classes that
 // match all of those constraints.
 func (t *ClassServlet) CacheableSearch(r *http.Request) *ApiResult {
