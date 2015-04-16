@@ -203,7 +203,7 @@ func get_common_classes(class_maps []map[int64]*Class) []*Class {
 // Get a list of all classes in the DB
 func get_all_classes(db *sql.DB) ([]*Class, error) {
 	rows, err := db.Query(`SELECT class.id, class.subject, subject.callsign,
-	subject.description, class.course_number, classn.name, class.description FROM class, subject
+	subject.description, class.course_number, class.name, class.description FROM class, subject
     WHERE class.subject = subject.id`)
 
 	if err != nil {
