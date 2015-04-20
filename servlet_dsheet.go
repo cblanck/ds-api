@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
@@ -174,7 +175,53 @@ func (t *DegreeSheetServlet) List_sheets(r *http.Request) *ApiResult {
 	return APISuccess(sheet_list)
 }
 
-func (t *DegreeSheetServlet) Get_entries(r *http.Request) *ApiResult {
+func (t *DegreeSheetServlet) Set_satisfaction_mapping(r *http.Request) *ApiResult {
+	// Check the session
+	session_id := r.Form.Get("session")
+	session_valid, session, err := t.session_manager.GetSession(session_id)
+	if err != nil {
+		return APIError("Internal server error", 500)
+	}
+	if !session_valid {
+		return APIError("The specified session has expired", 401)
+	}
+
+	// Get the sheet, check ownership
+	sheet_id_s := r.Form.Get("sheet_id")
+	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
+	if err != nil {
+		return APIError("Bad sheet ID", 400)
+	}
+
+	degree_sheet, err := GetDegreeSheetById(t.db, sheet_id)
+	if degree_sheet.User_id != session.User.Id {
+		return APIError("Specified sheet is not owned by you", 401)
+	}
+
+	// Check that the input is valid
+	map_json := r.Form.Get("satisfaction_map")
+	sat_map := make(map[string]int)
+	err = json.Unmarshal([]byte(map_json), &sat_map)
+	if err != nil {
+		log.Println(err)
+		return APIError("Invalid satisfaction map", 400)
+	}
+
+	// Drop all mappings for the given sheet
+	t.db.Exec("DELETE FROM degree_sheet_entry WHERE sheet_id = ?", degree_sheet.Id)
+
+	// Add mappings for the sheet using the map we were passed in
+	for requirement_id, satisfier_id := range sat_map {
+		t.db.Exec(
+			`INSERT INTO degree_sheet_entry
+			(sheet_id, requirement_id, satisfier_id)
+			VALUES (?, ?, ?)`,
+			degree_sheet.Id, requirement_id, satisfier_id)
+	}
+	return APISuccess("OK")
+}
+
+func (t *DegreeSheetServlet) Get_taken_classes(r *http.Request) *ApiResult {
 	session_id := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 
