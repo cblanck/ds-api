@@ -28,7 +28,7 @@ func NewDegreeSheetServlet(server_config Config, session_manager *SessionManager
 }
 
 // Remove a degree sheet entry by ID
-func (t *DegreeSheetServlet) Remove_entry(r *http.Request) *ApiResult {
+func (t *DegreeSheetServlet) Remove_taken_course(r *http.Request) *ApiResult {
 	// Validate the session
 	session_uuid := r.Form.Get("session")
 	session_valid, session, err := t.session_manager.GetSession(session_uuid)
@@ -52,16 +52,9 @@ func (t *DegreeSheetServlet) Remove_entry(r *http.Request) *ApiResult {
 		return APIError("Internal server error", 500)
 	}
 
-	// Fetch the relevant DegreeSheet
-	sheet, err := GetDegreeSheetById(t.db, entry.Sheet_id)
-	if err != nil {
-		log.Println("Remove_entry", err)
-		return APIError("Internal server_error", 500)
-	}
-
 	// Verify that the logged in user owns the sheet
-	if sheet.User_id != session.User.Id {
-		return APIError(fmt.Sprintf("Sheet ID #%d is not owned by you", sheet.Id), 401)
+	if session.User.Id != entry.User_id {
+		return APIError(fmt.Sprintf("Cannot modify the classes of others"), 401)
 	}
 
 	// Drop the entry
@@ -255,7 +248,7 @@ func (t *DegreeSheetServlet) Get_taken_classes(r *http.Request) *ApiResult {
 	}
 
 	rows, err := t.db.Query(
-		`SELECT id, sheet_id, class_id, year, semester, grade, passfail
+		`SELECT id, user_id, class_id, year, semester, grade, passfail
          FROM taken_courses WHERE sheet_id = ?`,
 		sheet_id)
 
@@ -273,7 +266,7 @@ func (t *DegreeSheetServlet) Get_taken_classes(r *http.Request) *ApiResult {
 		entry := new(TakenCourse)
 		if err := rows.Scan(
 			&entry.Id,
-			&entry.Sheet_id,
+			&entry.User_id,
 			&entry.Class_id,
 			&entry.Year,
 			&entry.Semester,
@@ -321,11 +314,7 @@ func (t *DegreeSheetServlet) Edit_taken_course(r *http.Request) *ApiResult {
 	if err != nil {
 		return APIError("Internal server error", 500)
 	}
-	sheet, err := GetDegreeSheetById(t.db, entry.Sheet_id)
-	if err != nil {
-		return APIError("Internal server error", 500)
-	}
-	if sheet.User_id != session.User.Id {
+	if entry.User_id != session.User.Id {
 		return APIError("Unauthorized", 401)
 	}
 
