@@ -412,7 +412,7 @@ type DegreeSheet struct {
 	Template_id   int64
 	Template_name string
 	Name          string
-	Entries       []*DegreeSheetEntry
+	Entries       []*TakenCourse
 }
 
 func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
@@ -444,7 +444,7 @@ func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
  * Degree sheet entry for a class
  */
 
-type DegreeSheetEntry struct {
+type TakenCourse struct {
 	Id       int64
 	Sheet_id int64
 	Class_id int64
@@ -455,18 +455,18 @@ type DegreeSheetEntry struct {
 	Passfail bool
 }
 
-func GetDegreeSheetEntriesForSheet(db *sql.DB, sheet_id int64) ([]*DegreeSheetEntry, error) {
+func GetDegreeSheetEntriesForSheet(db *sql.DB, sheet_id int64) ([]*TakenCourse, error) {
 	rows, err := db.Query(
-		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE sheet_id = ?",
+		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM taken_courses WHERE sheet_id = ?",
 		sheet_id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	entries := make([]*DegreeSheetEntry, 0)
+	entries := make([]*TakenCourse, 0)
 	for rows.Next() {
-		entry := new(DegreeSheetEntry)
+		entry := new(TakenCourse)
 		if err := rows.Scan(
 			&entry.Id,
 			&entry.Sheet_id,
@@ -535,10 +535,10 @@ func DeletePlannedClassForUser(db *sql.DB, class_id int64, user_id int64) error 
 	return err
 }
 
-func GetDegreeSheetEntryById(db *sql.DB, id int64) (*DegreeSheetEntry, error) {
-	entry := new(DegreeSheetEntry)
+func GetTakenCourseById(db *sql.DB, id int64) (*TakenCourse, error) {
+	entry := new(TakenCourse)
 	err := db.QueryRow(
-		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE id = ?",
+		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM taken_courses WHERE id = ?",
 		id).Scan(
 		&entry.Id,
 		&entry.Sheet_id,

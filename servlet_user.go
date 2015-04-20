@@ -113,8 +113,8 @@ func (t *UserServlet) Delete(r *http.Request) *ApiResult {
 	}
 
 	_, err = t.db.Exec(`
-		DELETE FROM degree_sheet, degree_sheet_entry
-		WHERE degree_sheet_entry.sheet_id = degree_sheet.id
+		DELETE FROM degree_sheet, taken_courses
+		WHERE taken_courses.sheet_id = degree_sheet.id
 		AND degree_sheet.user_id = ?`, session.User.Id)
 	if err != nil {
 		log.Println(err)

@@ -45,7 +45,7 @@ func (t *DegreeSheetServlet) Remove_entry(r *http.Request) *ApiResult {
 	if err != nil {
 		return APIError("Bad entry ID", 400)
 	}
-	entry, err := GetDegreeSheetEntryById(t.db, entry_id)
+	entry, err := GetTakenCourseById(t.db, entry_id)
 	if err != nil {
 		log.Println("Remove_entry", err)
 		return APIError("Internal server error", 500)
@@ -64,7 +64,7 @@ func (t *DegreeSheetServlet) Remove_entry(r *http.Request) *ApiResult {
 	}
 
 	// Drop the entry
-	_, err = t.db.Exec(`DELETE FROM degree_sheet_entry WHERE id = ?`, entry_id)
+	_, err = t.db.Exec(`DELETE FROM taken_courses WHERE id = ?`, entry_id)
 	if err != nil {
 		log.Println("Remove_entry", err)
 		return APIError("Internal server error", 500)
@@ -119,7 +119,7 @@ func (t *DegreeSheetServlet) Add_entry(r *http.Request) *ApiResult {
 	grade := r.Form.Get("grade")
 	passfail := r.Form.Get("passfail")
 
-	_, err = t.db.Exec(`INSERT INTO degree_sheet_entry (
+	_, err = t.db.Exec(`INSERT INTO taken_courses (
         sheet_id, class_id, year, semester, grade, passfail
     ) VALUES (
         ?, ?, ?, ?, ?, ?
@@ -186,7 +186,7 @@ func (t *DegreeSheetServlet) Get_entries(r *http.Request) *ApiResult {
 		return APIError("The specified session has expired", 401)
 	}
 
-	entry_list := make([]*DegreeSheetEntry, 0)
+	entry_list := make([]*TakenCourse, 0)
 
 	sheet_id_s := r.Form.Get("sheet_id")
 	sheet_id, err := strconv.ParseInt(sheet_id_s, 10, 64)
@@ -209,7 +209,7 @@ func (t *DegreeSheetServlet) Get_entries(r *http.Request) *ApiResult {
 
 	rows, err := t.db.Query(
 		`SELECT id, sheet_id, class_id, year, semester, grade, passfail
-         FROM degree_sheet_entry WHERE sheet_id = ?`,
+         FROM taken_courses WHERE sheet_id = ?`,
 		sheet_id)
 
 	if err != nil {
@@ -223,7 +223,7 @@ func (t *DegreeSheetServlet) Get_entries(r *http.Request) *ApiResult {
 
 	defer rows.Close()
 	for rows.Next() {
-		entry := new(DegreeSheetEntry)
+		entry := new(TakenCourse)
 		if err := rows.Scan(
 			&entry.Id,
 			&entry.Sheet_id,
@@ -245,7 +245,7 @@ func (t *DegreeSheetServlet) Get_entries(r *http.Request) *ApiResult {
 	return APISuccess(entry_list)
 }
 
-func (t *DegreeSheetServlet) Edit_entry(r *http.Request) *ApiResult {
+func (t *DegreeSheetServlet) Edit_taken_course(r *http.Request) *ApiResult {
 	class_id := r.Form.Get("class_id")
 	year := r.Form.Get("year")
 	semester := r.Form.Get("semester")
@@ -259,7 +259,7 @@ func (t *DegreeSheetServlet) Edit_entry(r *http.Request) *ApiResult {
 	session_valid, session, err := t.session_manager.GetSession(session_id)
 
 	if err != nil {
-		log.Println("Edit_entry", err)
+		log.Println("Edit_taken_course", err)
 		return APIError("Internal server error", 500)
 	}
 	if !session_valid {
@@ -270,23 +270,20 @@ func (t *DegreeSheetServlet) Edit_entry(r *http.Request) *ApiResult {
 	if err != nil {
 		return APIError("Bad entry ID", 400)
 	}
-	entry, err := GetDegreeSheetEntryById(t.db, entry_id)
+	entry, err := GetTakenCourseById(t.db, entry_id)
 	if err != nil {
-		log.Println("Edit_entry", err)
 		return APIError("Internal server error", 500)
 	}
 	sheet, err := GetDegreeSheetById(t.db, entry.Sheet_id)
 	if err != nil {
-		log.Println("Edit_entry", err)
 		return APIError("Internal server error", 500)
 	}
 	if sheet.User_id != session.User.Id {
-		log.Println("Edit_entry", err)
 		return APIError("Unauthorized", 401)
 	}
 
 	_, err = t.db.Exec(
-		`UPDATE degree_sheet_entry
+		`UPDATE taken_courses
          SET class_id = ?, year = ?, semester = ?, grade = ?, passfail = ?
          WHERE id = ?`, class_id, year, semester, grade, passfail, entry_id)
 	if err != nil {
