@@ -406,13 +406,15 @@ type DSCategoryRuleType struct {
  */
 
 type DegreeSheet struct {
-	Id            int64
-	Created       time.Time
-	User_id       int64
-	Template_id   int64
-	Template_name string
-	Name          string
-	Entries       []*DegreeSheetEntry
+	Id              int64
+	Created         time.Time
+	User_id         int64
+	Template_id     int64
+	Template_name   string
+	Name            string
+	Taken_courses   []*TakenCourse
+	Planned_courses []*PlannedClass
+	Dropped_courses SatisfactionMap
 }
 
 func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
@@ -433,20 +435,57 @@ func GetDegreeSheetById(db *sql.DB, id int64) (*DegreeSheet, error) {
 	if err != nil {
 		return nil, err
 	}
-	sheet.Entries, err = GetDegreeSheetEntriesForSheet(db, sheet.Id)
+
+	sheet.Taken_courses, err = GetTakenCoursesForUser(db, sheet.User_id)
 	if err != nil {
 		return nil, err
 	}
+
+	sheet.Planned_courses, err = GetPlannedClassesForUser(db, sheet.User_id)
+	if err != nil {
+		return nil, err
+	}
+
+	sheet.Dropped_courses, err = GetSavedStateForSheet(db, sheet.Id)
+	if err != nil {
+		return nil, err
+	}
+
 	return sheet, nil
 }
 
+type SatisfactionMap map[string]int64
+
+func GetSavedStateForSheet(db *sql.DB, sheet_id int64) (SatisfactionMap, error) {
+	rows, err := db.Query(
+		"SELECT requirement_id, satisfier_id FROM degree_sheet_entry WHERE sheet_id = ?",
+		sheet_id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make(map[string]int64, 0)
+	for rows.Next() {
+		var req string
+		var sat int64
+		if err := rows.Scan(
+			&req,
+			&sat); err != nil {
+			return nil, err
+		}
+		entries[req] = sat
+	}
+	return entries, nil
+}
+
 /*
- * Degree sheet entry for a class
+ * Courses taken by a student
  */
 
-type DegreeSheetEntry struct {
+type TakenCourse struct {
 	Id       int64
-	Sheet_id int64
+	User_id  int64
 	Class_id int64
 	Class    *Class
 	Year     int64
@@ -455,21 +494,20 @@ type DegreeSheetEntry struct {
 	Passfail bool
 }
 
-func GetDegreeSheetEntriesForSheet(db *sql.DB, sheet_id int64) ([]*DegreeSheetEntry, error) {
+func GetTakenCoursesForUser(db *sql.DB, user_id int64) ([]*TakenCourse, error) {
 	rows, err := db.Query(
-		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE sheet_id = ?",
-		sheet_id)
+		"SELECT id, class_id, year, semester, grade, passfail FROM taken_courses WHERE user_id = ?",
+		user_id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	entries := make([]*DegreeSheetEntry, 0)
+	entries := make([]*TakenCourse, 0)
 	for rows.Next() {
-		entry := new(DegreeSheetEntry)
+		entry := new(TakenCourse)
 		if err := rows.Scan(
 			&entry.Id,
-			&entry.Sheet_id,
 			&entry.Class_id,
 			&entry.Year,
 			&entry.Semester,
@@ -535,13 +573,13 @@ func DeletePlannedClassForUser(db *sql.DB, class_id int64, user_id int64) error 
 	return err
 }
 
-func GetDegreeSheetEntryById(db *sql.DB, id int64) (*DegreeSheetEntry, error) {
-	entry := new(DegreeSheetEntry)
+func GetTakenCourseById(db *sql.DB, id int64) (*TakenCourse, error) {
+	entry := new(TakenCourse)
 	err := db.QueryRow(
-		"SELECT id, sheet_id, class_id, year, semester, grade, passfail FROM degree_sheet_entry WHERE id = ?",
+		"SELECT id, user_id, class_id, year, semester, grade, passfail FROM taken_courses WHERE id = ?",
 		id).Scan(
 		&entry.Id,
-		&entry.Sheet_id,
+		&entry.User_id,
 		&entry.Class_id,
 		&entry.Year,
 		&entry.Semester,
