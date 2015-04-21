@@ -92,6 +92,10 @@ func GenerateMemcacheHash(servlet string, args map[string][]string) string {
 
 // Store the result of an API request in memcached.
 func SetCachedRequest(m *memcache.Client, key string, value *ApiResult) {
+	// Don't cache errors
+	if value.Success == 0 {
+		return
+	}
 	result_json, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		log.Println(err)
